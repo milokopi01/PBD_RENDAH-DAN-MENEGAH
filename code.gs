@@ -1,0 +1,1135 @@
+/**
+ * =====================================================================
+ *  e-PBD PPKI : SISTEM PELAPORAN PENTAKSIRAN BILIK DARJAH (Google Apps Script)
+ *  Backend API — membaca & menulis data terus dari Google Sheet.
+ *  TIADA data disimpan dalam kod ini. Semua data (termasuk kata laluan
+ *  admin) berada dalam Google Sheet: 01_TETAPAN, 02_MURID, 03_MATA_PELAJARAN,
+ *  04_MARKAH, 05_TAFSIRAN_TP, 06_PENYATAAN_KEMAHIRAN, 07_BAHASA_LABEL,
+ *  08_RUJUKAN, 09_PANDUAN, 10_LOG, 99_ARKIB_ASAL.
+ *
+ *  CARA PASANG:
+ *  1. Upload DATA_PELAPORAN_PBD.xlsx ke Google Drive > Buka dengan Google Sheets
+ *     (File > Save as Google Sheets).
+ *  2. Dalam Google Sheet: Extensions > Apps Script. Padam kod asal, tampal fail ini.
+ *  3. Deploy > New deployment > Type: Web app
+ *       Execute as : Me
+ *       Who has access : Anyone
+ *  4. Salin Web App URL (berakhir /exec) dan tampal di baris ke-5 index.html.
+ *  5. Kelas baharu / tahun baharu: buka menu "Kelas & Tahun" dalam aplikasi.
+ *     Sheet MURID & MARKAH baharu dicipta secara automatik; data tahun lepas kekal.
+ *  6. BERBILANG SEKOLAH (v5): setiap guru WAJIB daftar (nama, emel, kata laluan,
+ *     no telefon, kod sekolah). Data diasingkan mengikut KOD_SEKOLAH. Semua data
+ *     lama dipindah automatik ke sekolah SK BENUT (JBA6041) pada panggilan pertama.
+ *     (Boleh juga jalankan migrasiSKBenut() secara manual dari editor.)
+ *  7. MASTER ADMIN (v6): di skrin log masuk tekan "Log masuk Master Admin" dan masukkan
+ *     kata laluan MASTER_PASSWORD (di bawah). Master Admin boleh:
+ *       - melihat SEMUA akaun guru berserta kata laluan, menukar kata laluan,
+ *         menyahaktif atau memadam akaun;
+ *       - membuka data mana-mana sekolah (pilih kod sekolah di menu sisi);
+ *       - HANYA Master Admin boleh mengubah Tafsiran TP.
+ *     Guru biasa log masuk dengan EMEL + KATA LALUAN yang didaftarkan dan hanya
+ *     melihat data sekolah (kod sekolah) masing-masing.
+ *     Lupa kata laluan / pertanyaan: WhatsApp Master Admin 01110661077.
+ *     NOTA: kata laluan guru disimpan dalam lajur KATA_LALUAN sheet 00_GURU supaya
+ *     boleh dilihat oleh Master Admin. Hadkan akses Google Sheet kepada Master Admin sahaja.
+ *     Akaun lama: kata laluan direkod automatik selepas guru log masuk sekali.
+ *  8. MATA PELAJARAN & TAFSIRAN TP SERAGAM (v7): senarai mata pelajaran (kod, susunan,
+ *     nama) dan Tafsiran TP adalah SAMA untuk semua sekolah dan disimpan sebagai baris
+ *     KOD_SEKOLAH = "SEMUA" dalam 03_MATA_PELAJARAN & 05_TAFSIRAN_TP. Hanya Master Admin
+ *     boleh menambah/memadam mata pelajaran, menukar kod/susunan/nama, dan mengubah
+ *     Tafsiran TP — perubahan terus dilihat oleh semua sekolah.
+ *     Guru setiap sekolah hanya boleh kemaskini: nama guru MP, bidang/komponen,
+ *     status aktif dan catatan (disimpan pada baris kod sekolah masing-masing).
+ *     Data asal SK BENUT disalin automatik sebagai set "SEMUA" pada panggilan pertama.
+ *  9. TAHAP 1 / TAHAP 2 (v8): setiap kelas mempunyai lajur TAHAP dalam 00_KELAS (1 = Tahun 1-3,
+ *     2 = Tahun 4-6). Mata pelajaran, Tafsiran TP & Penyataan Kemahiran ditapis ikut tahap kelas
+ *     yang sedang dibuka supaya tidak tertukar. Tahap boleh ditukar di Tetapan atau semasa cipta kelas.
+ *  PENTING: selepas tampal kod baharu, buat Deploy > Manage deployments > Edit > New version.
+ *  (Jika skrip TIDAK dibuka dari dalam Google Sheet, isi SPREADSHEET_ID di bawah.)
+ * =====================================================================
+ */
+const SPREADSHEET_ID = ''; // kosongkan jika skrip dibuka dari Extensions > Apps Script
+
+/* ---------- MASTER ADMIN ---------- */
+const MASTER_PASSWORD = '202020';      // kata laluan Master Admin
+const MASTER_EMEL = 'MASTER_ADMIN';    // pengenal sesi Master Admin (bukan emel sebenar)
+const WASAP_ADMIN = '01110661077';     // WhatsApp Master Admin (lupa kata laluan / pertanyaan)
+const KOD_GLOBAL = 'SEMUA';            // baris mata pelajaran & tafsiran TP yang dikongsi semua sekolah
+const KOMP_KEY = 'KOMPONEN (dipisah | )';
+// lajur mata pelajaran yang boleh diubah oleh guru (berbeza bagi setiap sekolah)
+const MP_SEKOLAH = ['NAMA_GURU_MP', KOMP_KEY, 'AKTIF', 'CATATAN'];
+
+const SH = {
+  KELAS: '00_KELAS',
+  TETAPAN: '01_TETAPAN', MURID: '02_MURID', MP: '03_MATA_PELAJARAN', MARKAH: '04_MARKAH',
+  TAFSIRAN: '05_TAFSIRAN_TP', KEMAHIRAN: '06_PENYATAAN_KEMAHIRAN', BAHASA: '07_BAHASA_LABEL',
+  RUJUKAN: '08_RUJUKAN', PANDUAN: '09_PANDUAN', LOG: '10_LOG', GURU: '00_GURU'
+};
+/* v12: Sheet berasingan untuk Sekolah Menengah (KSSMPK) — database Sekolah Rendah 100% tidak terusik */
+const SH_SM = {
+  KELAS: 'SM_00_KELAS', TETAPAN: 'SM_01_TETAPAN', MP: 'SM_03_MATA_PELAJARAN',
+  TAFSIRAN: 'SM_05_TAFSIRAN_TP', KEMAHIRAN: 'SM_06_PENYATAAN_KEMAHIRAN'
+};
+const KOD_ASAL = 'JBA6041';          // sekolah rendah asal (SK BENUT)
+const KOD_ASAL_SM = 'SMK0001';       // sekolah menengah contoh (SMK SUNGAI KOB)
+const GURU_HEADERS = ['KOD_SEKOLAH','NAMA_GURU','EMEL','NO_TELEFON','KATA_LALUAN_HASH','GARAM','TOKEN','STATUS','DIDAFTAR','LOG_MASUK_AKHIR','KATA_LALUAN','PERINGKAT'];
+function normPeringkat_(v) { return /MENENGAH|SMK|^SM$/i.test(String(v || '').trim()) ? 'MENENGAH' : 'RENDAH'; }
+function shFor_(key, peringkat) { return normPeringkat_(peringkat) === 'MENENGAH' ? (SH_SM[key] || SH[key]) : SH[key]; }
+function pastiSheetSM_() {
+  const ss = ss_();
+  const defs = [
+    [SH_SM.KELAS, KELAS_HEADERS],
+    [SH_SM.TETAPAN, ['KUNCI','NILAI','KETERANGAN','KOD_SEKOLAH']],
+    [SH_SM.MP, ['KOD_MP','SUSUNAN','NAMA_MATA_PELAJARAN','NAMA_GURU_MP',KOMP_KEY,'NO_TAFSIRAN','AKTIF','SHEET_ASAL','TAJUK_ASAL','CATATAN','KOD_SEKOLAH','TAHAP','SKALA_TP']],
+    [SH_SM.TAFSIRAN, ['SET','BIL','KOD_MP','JENIS','MATA_PELAJARAN','TP1','TP2','TP3','TP4','TP5','TP6','KOD_SEKOLAH','TAHAP']],
+    [SH_SM.KEMAHIRAN, ['KOD_MP','BIL','JENIS','KEMAHIRAN','TP1','TP2','TP3','TP4','TP5','TP6','TAHAP']]
+  ];
+  defs.forEach(([nm, hd]) => {
+    if (!ss.getSheetByName(nm)) {
+      const sh = ss.insertSheet(nm);
+      sh.getRange(1, 1, 1, hd.length).setValues([hd]).setFontWeight('bold').setBackground('#14213d').setFontColor('#ffffff');
+      sh.setFrozenRows(1);
+    }
+  });
+}
+// sheet yang dikongsi tetapi diasingkan baris demi baris mengikut KOD_SEKOLAH
+const SHEET_BERSEKOLAH = ['00_KELAS', '01_TETAPAN', '03_MATA_PELAJARAN', '05_TAFSIRAN_TP'];
+const MARKAH_HEADERS = ['ID_MURID','KOD_MP','K1','K2','K3','K4','K5','K6','K7','K8','K9','K10','K11','K12','TP_KESELURUHAN','ULASAN_GURU_MP','DIKEMASKINI'];
+
+const KELAS_HEADERS = ['ID_KELAS','SESI','TAHUN','NAMA_KELAS','NAMA_GURU_KELAS','SHEET_MURID','SHEET_MARKAH','STATUS','DICIPTA','KOD_SEKOLAH','TAHAP'];
+// Tetapan yang berbeza bagi setiap kelas (disimpan dalam 00_KELAS, bukan 01_TETAPAN)
+const KELAS_KEYS = { SESI: 'SESI', TAHUN: 'TAHUN', KELAS: 'NAMA_KELAS', NAMA_GURU_KELAS: 'NAMA_GURU_KELAS', TAHAP: 'TAHAP' };
+
+/* ====================== TAHAP 1 / TAHAP 2 (v8) ======================
+ * Setiap kelas ditetapkan sebagai TAHAP 1 (Tahun 1-3) atau TAHAP 2 (Tahun 4-6) dalam lajur
+ * TAHAP sheet 00_KELAS. Mata pelajaran (03), Tafsiran TP (05) & Penyataan Kemahiran (06)
+ * juga mempunyai lajur TAHAP, jadi setiap kelas hanya melihat mata pelajaran & pentaksiran
+ * tahapnya sendiri. Baris dengan TAHAP kosong dianggap terpakai untuk kedua-dua tahap. */
+function normTahap_(v, peringkat) {
+  const raw = String(v == null ? '' : v).toUpperCase().trim().replace(/\.0+$/, '');
+  if (normPeringkat_(peringkat) === 'MENENGAH') {
+    if (/KR|KEFUNGSIAN|RENDAH/.test(raw)) return 'KR';
+    const m = raw.match(/(?:T|TINGKATAN|TING)?\s*([1-5])/);
+    return m ? ('T' + m[1]) : '';
+  }
+  const s = raw.replace(/TAHAP|\s/g, '');
+  return (s === '1' || s === '2') ? s : '';
+}
+function tahapDariTahun_(t, peringkat) {
+  const raw = String(t == null ? '' : t).toUpperCase().trim();
+  if (normPeringkat_(peringkat) === 'MENENGAH') {
+    if (/KR|KEFUNGSIAN|RENDAH/.test(raw)) return 'KR';
+    const m = raw.match(/([1-5])/);
+    return m ? ('T' + m[1]) : 'T1';
+  }
+  const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+  return (n >= 4 && n <= 6) ? '2' : '1';
+}
+function tahapKelas_(k, peringkat) {
+  const p = normPeringkat_(peringkat);
+  if (!k) return p === 'MENENGAH' ? 'T1' : '1';
+  return normTahap_(k.TAHAP, p) || tahapDariTahun_(k.TAHUN, p);
+}
+function ikutTahap_(r, tahap, peringkat) {
+  const t = normTahap_(r.TAHAP, peringkat);
+  return !t || t === String(tahap);
+}
+function pastiLajur_(name, col) {
+  const sh = ss_().getSheetByName(name); if (!sh || sh.getLastColumn() < 1) return;
+  if (headers_(sh).indexOf(col) > -1) return;
+  const c = sh.getLastColumn() + 1;
+  sh.getRange(1, c).setValue(col).setFontWeight('bold').setBackground('#0f5257').setFontColor('#ffffff');
+  if (name === SH.KELAS && sh.getLastRow() > 1) { // isi tahap kelas sedia ada berdasarkan tahun
+    const hd = headers_(sh), cT = hd.indexOf('TAHUN'); const vals = sh.getRange(2, 1, sh.getLastRow() - 1, hd.length).getValues();
+    sh.getRange(2, c, vals.length, 1).setValues(vals.map(v => [tahapDariTahun_(cT > -1 ? v[cT] : '')]));
+  }
+}
+function migrasiTahap() { [SH.KELAS, SH.MP, SH.TAFSIRAN, SH.KEMAHIRAN].forEach(n => pastiLajur_(n, 'TAHAP')); }
+
+function ss_() { return SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
+function sheet_(name) {
+  const sh = ss_().getSheetByName(name);
+  if (!sh) throw new Error('Ralat data sistem. Sila WhatsApp Master Admin ' + WASAP_ADMIN + '.');
+  return sh;
+}
+function out_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
+
+/* ---------- Baca sheet sebagai senarai objek ---------- */
+function readTable_(name) {
+  const sh = sheet_(name);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 1) return [];
+  const headers = values[0].map(String);
+  const rows = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    if (r.every(c => c === '' || c === null)) continue;
+    const o = {};
+    headers.forEach((h, j) => {
+      let v = r[j];
+      if (v instanceof Date) v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      o[h] = v;
+    });
+    o._row = i + 1;
+    rows.push(o);
+  }
+  return rows;
+}
+/* Data rujukan (jarang berubah) disimpan dalam cache pelayan 6 jam -> muatan lebih pantas */
+function readCached_(name) {
+  const c = CacheService.getScriptCache(), k = 'TBL_' + name;
+  try { const v = c.get(k); if (v) return JSON.parse(v); } catch (e) {}
+  const rows = readTable_(name);
+  try { const s = JSON.stringify(rows); if (s.length < 95000) c.put(k, s, 21600); } catch (e) {}
+  return rows;
+}
+const sama_ = (a, b) => String(a || '').trim().toUpperCase() === String(b || '').trim().toUpperCase();
+function readSekolah_(name, kod) { return readTable_(name).filter(r => sama_(r.KOD_SEKOLAH, kod)); }
+function appendObj_(sh, obj) { const hd = headers_(sh); sh.appendRow(hd.map(h => obj[h] !== undefined ? obj[h] : '')); }
+function settings_(kod, peringkat) {
+  const o = {};
+  readSekolah_(shFor_('TETAPAN', peringkat), kod).forEach(r => { o[String(r.KUNCI).trim()] = r.NILAI; });
+  return o;
+}
+function log_(action, detail, guru) {
+  try { sheet_(SH.LOG).appendRow([new Date(), action, (guru ? '[' + guru.KOD_SEKOLAH + ' ' + guru.EMEL + '] ' : '') + String(detail || '').slice(0, 500)]); } catch (e) {}
+}
+
+/* ====================== MIGRASI KE BERBILANG SEKOLAH ======================
+ * Tambah lajur KOD_SEKOLAH pada sheet dikongsi dan isi baris lama dengan JBA6041.
+ * Selamat dijalankan berulang kali (baris yang sudah ada kod tidak diubah). */
+function pastiLajurKod_(name) {
+  const sh = ss_().getSheetByName(name); if (!sh) return;
+  if (sh.getLastColumn() < 1) return;
+  let hd = headers_(sh); let c = hd.indexOf('KOD_SEKOLAH');
+  if (c < 0) {
+    c = hd.length;
+    sh.getRange(1, c + 1).setValue('KOD_SEKOLAH').setFontWeight('bold').setBackground('#0f5257').setFontColor('#ffffff');
+  }
+  const n = sh.getLastRow() - 1; if (n < 1) return;
+  const rng = sh.getRange(2, c + 1, n, 1); const vals = rng.getValues();
+  const data = sh.getRange(2, 1, n, Math.max(1, c)).getValues();
+  let ubah = false;
+  for (let i = 0; i < n; i++) {
+    const kosong = data[i].every(v => v === '' || v === null);
+    if (!kosong && !String(vals[i][0]).trim()) { vals[i][0] = KOD_ASAL; ubah = true; }
+  }
+  if (ubah) rng.setValues(vals);
+}
+function guruSheet_() {
+  const ss = ss_(); let sh = ss.getSheetByName(SH.GURU);
+  if (!sh) {
+    sh = ss.insertSheet(SH.GURU, 0);
+    sh.getRange(1, 1, 1, GURU_HEADERS.length).setValues([GURU_HEADERS]).setFontWeight('bold').setBackground('#0f5257').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < 1) {
+    sh.getRange(1, 1, 1, GURU_HEADERS.length).setValues([GURU_HEADERS]).setFontWeight('bold').setBackground('#0f5257').setFontColor('#ffffff');
+  } else { // tambah lajur baharu (cth: KATA_LALUAN) pada sheet sedia ada
+    const hd = headers_(sh);
+    GURU_HEADERS.forEach(h => { if (hd.indexOf(h) < 0) { hd.push(h); sh.getRange(1, hd.length).setValue(h).setFontWeight('bold').setBackground('#0f5257').setFontColor('#ffffff'); } });
+  }
+  return sh;
+}
+function migrasiMenengah() {
+  const sh = guruSheet_();
+  const hd = headers_(sh), cP = hd.indexOf('PERINGKAT');
+  if (cP > -1 && sh.getLastRow() > 1) {
+    const rng = sh.getRange(2, cP + 1, sh.getLastRow() - 1, 1), vals = rng.getValues();
+    let ubah = false;
+    for (let i = 0; i < vals.length; i++) { if (!String(vals[i][0] || '').trim()) { vals[i][0] = 'RENDAH'; ubah = true; } }
+    if (ubah) rng.setValues(vals);
+  }
+  pastiSheetSM_();
+}
+function migrasi_() {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('MIGRASI_SEKOLAH_V5') !== 'SIAP') { migrasiSKBenut(); p.setProperty('MIGRASI_SEKOLAH_V5', 'SIAP'); }
+  if (p.getProperty('MIGRASI_GLOBAL_V7') !== 'SIAP') { migrasiGlobal(); p.setProperty('MIGRASI_GLOBAL_V7', 'SIAP'); }
+  if (p.getProperty('MIGRASI_TAHAP_V8') !== 'SIAP') { migrasiTahap(); p.setProperty('MIGRASI_TAHAP_V8', 'SIAP'); }
+  if (p.getProperty('MIGRASI_MENENGAH_V12') !== 'SIAP') { migrasiMenengah(); p.setProperty('MIGRASI_MENENGAH_V12', 'SIAP'); }
+}
+/* v7: cipta set mata pelajaran & tafsiran TP seragam ("SEMUA") dari data SK BENUT.
+ * Boleh dijalankan secara manual; tidak berbuat apa-apa jika set SEMUA sudah wujud. */
+function migrasiGlobal() {
+  [SH.MP, SH.TAFSIRAN].forEach(name => {
+    const sh = ss_().getSheetByName(name); if (!sh) return;
+    pastiLajurKod_(name);
+    if (readSekolah_(name, KOD_GLOBAL).length) return;
+    const hd = headers_(sh);
+    const rows = readSekolah_(name, KOD_ASAL).map(r => hd.map(h => h === 'KOD_SEKOLAH' ? KOD_GLOBAL
+      : (name === SH.MP && (h === 'NAMA_GURU_MP' || h === 'CATATAN')) ? '' : (r[h] === undefined ? '' : r[h])));
+    if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, hd.length).setValues(rows);
+  });
+  log_('MIGRASI', 'Set mata pelajaran & tafsiran TP seragam (SEMUA) dicipta');
+}
+/* Boleh dijalankan secara manual dari editor Apps Script */
+function migrasiSKBenut() {
+  guruSheet_();
+  kelasSheet_(); // pastikan 00_KELAS wujud (kelas asal didaftar dahulu)
+  SHEET_BERSEKOLAH.forEach(pastiLajurKod_);
+  // pastikan NAMA_SEKOLAH ada untuk SK BENUT
+  const t = settings_(KOD_ASAL);
+  if (!String(t.NAMA_SEKOLAH || '').trim()) setTetapan_(KOD_ASAL, 'NAMA_SEKOLAH', 'SK BENUT');
+  log_('MIGRASI', 'Semua data lama ditetapkan kepada ' + KOD_ASAL);
+}
+
+/* Sekolah baharu: salin tetapan umum dari sekolah asal.
+ * (Mata pelajaran & tafsiran TP tidak perlu disalin — semua sekolah guna set SEMUA.) */
+function sediaSekolah_(kod, peringkat) {
+  const p = normPeringkat_(peringkat);
+  if (p === 'MENENGAH') {
+    pastiSheetSM_();
+    if (readSekolah_(SH_SM.TETAPAN, kod).length) return;
+    const shT = sheet_(SH_SM.TETAPAN);
+    const lalai = [
+      ['NAMA_SEKOLAH', '', 'Nama sekolah menengah'],
+      ['ALAMAT_SEKOLAH', '', 'Alamat baris 1'],
+      ['ALAMAT_SEKOLAH_2', '', 'Alamat baris 2'],
+      ['PELAPORAN', 'PENTAKSIRAN AKHIR TAHUN', 'PENTAKSIRAN PERTENGAHAN TAHUN / PENTAKSIRAN AKHIR TAHUN'],
+      ['TARIKH_PELAPORAN', '', 'Tarikh pelaporan'],
+      ['NAMA_GURU_BESAR', '', 'Nama Pengetua'],
+      ['JAWATAN_PENTADBIR', 'PENGETUA', 'Jawatan pentadbir'],
+      ['JENIS_SEKOLAH', 'SEK MEN KEB (SMK) PPKI', 'Jenis sekolah'],
+      ['BAHASA_LAPORAN', 'SK', 'Bahasa laporan'],
+      ['TAJUK_SIJIL', 'SIJIL PENTAKSIRAN BILIK DARJAH (KSSMPK)', 'Tajuk sijil PBD'],
+      ['LOGO_URL', '', 'Logo sekolah']
+    ];
+    lalai.forEach(([k, v, ket]) => appendObj_(shT, { KUNCI: k, NILAI: v, KETERANGAN: ket, KOD_SEKOLAH: kod }));
+    return;
+  }
+  if (readSekolah_(SH.TETAPAN, kod).length) return;
+  const KEKAL = ['PELAPORAN', 'JENIS_SEKOLAH', 'BAHASA_LAPORAN', 'TAJUK_SIJIL', 'JAWATAN_PENTADBIR'];
+  const shT = sheet_(SH.TETAPAN);
+  const rowsT = readSekolah_(SH.TETAPAN, KOD_ASAL).filter(r => String(r.KUNCI).trim() && String(r.KUNCI).trim() !== 'ADMIN_PASSWORD');
+  rowsT.forEach(r => { const o = Object.assign({}, r); delete o._row; o.KOD_SEKOLAH = kod; if (KEKAL.indexOf(String(r.KUNCI).trim()) < 0) o.NILAI = ''; appendObj_(shT, o); });
+  if (!rowsT.length) appendObj_(shT, { KUNCI: 'NAMA_SEKOLAH', NILAI: '', KOD_SEKOLAH: kod });
+}
+
+/* ====================== MATA PELAJARAN SERAGAM ======================
+ * Kod, susunan & nama dari set SEMUA (Master Admin). Nama guru MP, komponen,
+ * aktif & catatan dari baris sekolah itu sendiri (jika ada). */
+function mpSekolah_(kod, tahap, peringkat) {
+  const p = normPeringkat_(peringkat), shMp = shFor_('MP', p);
+  tahap = normTahap_(tahap, p) || (p === 'MENENGAH' ? 'T1' : '1');
+  const sek = {}; readSekolah_(shMp, kod).filter(r => ikutTahap_(r, tahap, p)).forEach(r => { const key = String(r.KOD_MP).trim().toUpperCase(); if (!sek[key] || normTahap_(r.TAHAP, p)) sek[key] = r; });
+  return readSekolah_(shMp, KOD_GLOBAL).filter(g => ikutTahap_(g, tahap, p)).map(g => {
+    const o = Object.assign({}, g); delete o._row;
+    const s = sek[String(g.KOD_MP).trim().toUpperCase()];
+    o.NAMA_GURU_MP = s ? s.NAMA_GURU_MP : ''; o.CATATAN = s ? s.CATATAN : '';
+    if (s) { o[KOMP_KEY] = s[KOMP_KEY]; o.AKTIF = s.AKTIF; }
+    o.KOD_SEKOLAH = kod; o.TAHAP = normTahap_(g.TAHAP, p) || tahap;
+    if (p === 'MENENGAH' && !o.SKALA_TP) o.SKALA_TP = tahap === 'KR' ? 3 : 6;
+    return o;
+  });
+}
+function saveMP_(d, kod, master, tahap, peringkat) {
+  d = d || {}; const p = normPeringkat_(peringkat), shMp = shFor_('MP', p);
+  tahap = normTahap_(tahap, p) || (p === 'MENENGAH' ? 'T1' : '1');
+  const kmp = String(d.KOD_MP || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!kmp) throw new Error('Kod mata pelajaran wajib diisi.');
+  const cari = () => { const c = readSekolah_(shMp, KOD_GLOBAL).filter(r => String(r.KOD_MP).trim().toUpperCase() === kmp && ikutTahap_(r, tahap, p)); return c.find(r => normTahap_(r.TAHAP, p)) || c[0]; };
+  let glob = cari();
+  if (master) { // bahagian seragam: kod, susunan, nama (dilihat semua sekolah)
+    const g = { KOD_MP: kmp };
+    if (d.SUSUNAN !== undefined) g.SUSUNAN = d.SUSUNAN;
+    if (d.NAMA_MATA_PELAJARAN !== undefined) g.NAMA_MATA_PELAJARAN = String(d.NAMA_MATA_PELAJARAN).trim();
+    if (p === 'MENENGAH') g.SKALA_TP = d.SKALA_TP || (tahap === 'KR' ? 3 : 6);
+    if (!glob) { g[KOMP_KEY] = d[KOMP_KEY] || ''; g.AKTIF = d.AKTIF || 'Y'; } // lalai untuk sekolah lain
+    if (!String(g.NAMA_MATA_PELAJARAN || (glob && glob.NAMA_MATA_PELAJARAN) || '').trim()) throw new Error('Nama mata pelajaran wajib diisi.');
+    upsertSekolah_(shMp, 'KOD_MP', g, KOD_GLOBAL, tahap, p);
+    glob = cari();
+  } else if (!glob) throw new Error('Hanya Master Admin boleh menambah mata pelajaran baharu.');
+  // bahagian sekolah: nama guru, komponen, aktif, catatan
+  const s = { KOD_MP: kmp, NAMA_MATA_PELAJARAN: glob.NAMA_MATA_PELAJARAN, SUSUNAN: glob.SUSUNAN };
+  if (p === 'MENENGAH') s.SKALA_TP = glob.SKALA_TP || (tahap === 'KR' ? 3 : 6);
+  MP_SEKOLAH.forEach(k => { if (d[k] !== undefined) s[k] = d[k]; });
+  upsertSekolah_(shMp, 'KOD_MP', s, kod, tahap, p);
+  return kmp;
+}
+
+/* ====================== GURU: DAFTAR & LOG MASUK ====================== */
+function hash_(garam, pw) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, garam + '|' + pw, Utilities.Charset.UTF_8)
+    .map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+const normEmel_ = e => String(e || '').trim().toLowerCase();
+function cariGuru_(emel) {
+  const em = normEmel_(emel); if (!em) return null;
+  return readTable_(SH.GURU).find(g => normEmel_(g.EMEL) === em) || null;
+}
+function setGuru_(g, data) {
+  const sh = guruSheet_(); const hd = headers_(sh);
+  Object.keys(data).forEach(k => { const c = hd.indexOf(k); if (c > -1) sh.getRange(g._row, c + 1).setValue(data[k]); g[k] = data[k]; });
+}
+function awamGuru_(g) { return { NAMA_GURU: g.NAMA_GURU, EMEL: g.EMEL, NO_TELEFON: String(g.NO_TELEFON || ''), KOD_SEKOLAH: String(g.KOD_SEKOLAH).toUpperCase(), PERINGKAT: normPeringkat_(g.PERINGKAT), MASTER: !!g._master }; }
+function daftar_(d) {
+  d = d || {};
+  const nama = String(d.NAMA_GURU || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const emel = normEmel_(d.EMEL);
+  const pw = String(d.PASSWORD || '');
+  const tel = String(d.NO_TELEFON || '').trim().toUpperCase().replace(/[^0-9+\- ]/g, '');
+  const kod = String(d.KOD_SEKOLAH || '').trim().toUpperCase().replace(/\s+/g, '');
+  const rawP = String(d.PERINGKAT || '').trim().toUpperCase();
+  if (rawP !== 'RENDAH' && rawP !== 'MENENGAH') throw new Error('Sila pilih peringkat sekolah (Sekolah Rendah atau Sekolah Menengah).');
+  const peringkat = normPeringkat_(rawP);
+  if (nama.length < 3) throw new Error('Nama guru wajib diisi.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emel)) throw new Error('Emel tidak sah.');
+  if (pw.length < 6) throw new Error('Kata laluan sekurang-kurangnya 6 aksara.');
+  if (tel.replace(/\D/g, '').length < 9) throw new Error('No telefon tidak sah.');
+  if (!/^[A-Z]{3}[0-9]{4}$/.test(kod)) throw new Error('Kod sekolah tidak sah. Contoh: JBA6041 atau KEA5025 (3 huruf + 4 nombor).');
+  if (cariGuru_(emel)) throw new Error('Emel ini sudah didaftarkan. Sila log masuk.');
+  sediaSekolah_(kod, peringkat);
+  const garam = Utilities.getUuid();
+  appendObj_(guruSheet_(), { KOD_SEKOLAH: kod, NAMA_GURU: nama, EMEL: emel, NO_TELEFON: "'" + tel, KATA_LALUAN_HASH: hash_(garam, pw), GARAM: garam, TOKEN: Utilities.getUuid(), STATUS: 'AKTIF', DIDAFTAR: new Date(), KATA_LALUAN: "'" + pw, PERINGKAT: peringkat });
+  const g = cariGuru_(emel);
+  log_('DAFTAR', nama + ' (' + peringkat + ')', g);
+  return g;
+}
+function login_(emel, pw) {
+  const g = cariGuru_(emel);
+  if (!g || hash_(String(g.GARAM), String(pw || '')) !== String(g.KATA_LALUAN_HASH)) throw new Error('Emel atau kata laluan salah. Lupa kata laluan? WhatsApp Master Admin ' + WASAP_ADMIN + '.');
+  if (String(g.STATUS || 'AKTIF').toUpperCase() !== 'AKTIF') throw new Error('Akaun anda tidak aktif. Sila WhatsApp Master Admin ' + WASAP_ADMIN + '.');
+  if (!String(g.TOKEN || '').trim()) setGuru_(g, { TOKEN: Utilities.getUuid() });
+  const ubah = { LOG_MASUK_AKHIR: new Date() };
+  if (String(g.KATA_LALUAN || '') !== String(pw)) ubah.KATA_LALUAN = "'" + pw; // rekod untuk paparan Master Admin
+  setGuru_(g, ubah);
+  return g;
+}
+function sahGuru_(emel, token, sekolah, peringkat) {
+  if (isMasterEmel_(emel)) return sahMaster_(token, sekolah, peringkat);
+  const g = cariGuru_(emel);
+  if (!g || !String(token || '').trim() || String(g.TOKEN) !== String(token)) throw new Error('Sesi tamat. Sila log masuk semula (kata laluan).');
+  if (String(g.STATUS || 'AKTIF').toUpperCase() !== 'AKTIF') throw new Error('Akaun anda tidak aktif. Sila WhatsApp Master Admin ' + WASAP_ADMIN + '.');
+  return g;
+}
+function tukarKataLaluan_(g, pw) {
+  if (String(pw).length < 6) throw new Error('Kata laluan baharu sekurang-kurangnya 6 aksara.');
+  const garam = Utilities.getUuid(), token = Utilities.getUuid();
+  setGuru_(g, { GARAM: garam, KATA_LALUAN_HASH: hash_(garam, pw), TOKEN: token, KATA_LALUAN: "'" + pw });
+  return token;
+}
+
+/* ====================== MASTER ADMIN ====================== */
+function isMasterEmel_(e) { return String(e || '').trim().toUpperCase() === MASTER_EMEL; }
+function sigMaster_() { return hash_('MASTER', MASTER_PASSWORD); }
+function loginMaster_(pw) {
+  const c = CacheService.getScriptCache(); const n = +(c.get('MASTER_GAGAL') || 0);
+  if (n >= 5) throw new Error('Terlalu banyak cubaan salah. Cuba lagi selepas 10 minit.');
+  if (String(pw || '') !== MASTER_PASSWORD) { c.put('MASTER_GAGAL', String(n + 1), 600); throw new Error('Kata laluan Master Admin salah.'); }
+  c.remove('MASTER_GAGAL');
+  const p = PropertiesService.getScriptProperties();
+  let tok = p.getProperty('MASTER_TOKEN');
+  // token baharu jika kata laluan Master Admin ditukar (sesi lama tamat)
+  if (!tok || p.getProperty('MASTER_SIG') !== sigMaster_()) { tok = Utilities.getUuid(); p.setProperties({ MASTER_TOKEN: tok, MASTER_SIG: sigMaster_() }); }
+  return tok;
+}
+function masterGuru_(sekolah, peringkat) {
+  let kod = String(sekolah || '').trim().toUpperCase();
+  if (!/^[A-Z]{3}[0-9]{4}$/.test(kod)) kod = KOD_ASAL;
+  let per = peringkat ? normPeringkat_(peringkat) : '';
+  if (!per) {
+    const sk = senaraiSekolah_().find(x => x.KOD === kod);
+    per = sk ? sk.PERINGKAT : 'RENDAH';
+  }
+  return { _master: true, KOD_SEKOLAH: kod, PERINGKAT: per, NAMA_GURU: 'MASTER ADMIN', EMEL: MASTER_EMEL, NO_TELEFON: WASAP_ADMIN };
+}
+function sahMaster_(token, sekolah, peringkat) {
+  const p = PropertiesService.getScriptProperties();
+  if (!String(token || '').trim() || p.getProperty('MASTER_TOKEN') !== String(token) || p.getProperty('MASTER_SIG') !== sigMaster_())
+    throw new Error('Sesi tamat. Sila log masuk semula (kata laluan).');
+  return masterGuru_(sekolah, peringkat);
+}
+/* Senarai semua sekolah Rendah & Menengah (kod, nama, bilangan guru, peringkat) */
+function senaraiSekolah_() {
+  const map = {};
+  const reg = (k, per, nm) => {
+    k = String(k || '').trim().toUpperCase(); if (!k || k === KOD_GLOBAL) return;
+    const key = per + '|' + k;
+    if (!map[key]) map[key] = { KOD: k, NAMA: '', GURU: 0, PERINGKAT: per };
+    if (nm) map[key].NAMA = String(nm);
+  };
+  reg(KOD_ASAL, 'RENDAH', '');
+  readTable_(SH.TETAPAN).forEach(r => reg(r.KOD_SEKOLAH, 'RENDAH', String(r.KUNCI).trim() === 'NAMA_SEKOLAH' ? r.NILAI : ''));
+  if (ss_().getSheetByName(SH_SM.TETAPAN)) {
+    readTable_(SH_SM.TETAPAN).forEach(r => reg(r.KOD_SEKOLAH, 'MENENGAH', String(r.KUNCI).trim() === 'NAMA_SEKOLAH' ? r.NILAI : ''));
+  }
+  readTable_(SH.GURU).forEach(g => {
+    const k = String(g.KOD_SEKOLAH || '').trim().toUpperCase(); if (!k) return;
+    const per = normPeringkat_(g.PERINGKAT);
+    reg(k, per, '');
+    map[per + '|' + k].GURU += 1;
+  });
+  return Object.keys(map).map(k => map[k]).sort((a, b) => a.PERINGKAT.localeCompare(b.PERINGKAT) || a.KOD.localeCompare(b.KOD));
+}
+function senaraiKodSekolah_() { return senaraiSekolah_().map(x => x.KOD); }
+/* Semua akaun guru berserta kata laluan — untuk Master Admin sahaja */
+function senaraiAkaun_() {
+  return readTable_(SH.GURU).map(g => ({
+    KOD_SEKOLAH: String(g.KOD_SEKOLAH || '').toUpperCase(), PERINGKAT: normPeringkat_(g.PERINGKAT),
+    NAMA_GURU: g.NAMA_GURU, EMEL: g.EMEL,
+    NO_TELEFON: String(g.NO_TELEFON || ''), KATA_LALUAN: String(g.KATA_LALUAN === undefined ? '' : g.KATA_LALUAN),
+    STATUS: String(g.STATUS || 'AKTIF').toUpperCase(), DIDAFTAR: g.DIDAFTAR, LOG_MASUK_AKHIR: g.LOG_MASUK_AKHIR
+  }));
+}
+function kemaskiniAkaun_(emel, d) {
+  const g = cariGuru_(emel); if (!g) throw new Error('Akaun ' + emel + ' tidak dijumpai.');
+  d = d || {}; const ubah = {};
+  const pw = String(d.KATA_LALUAN || '').trim();
+  if (pw) {
+    if (pw.length < 6) throw new Error('Kata laluan sekurang-kurangnya 6 aksara.');
+    const garam = Utilities.getUuid();
+    Object.assign(ubah, { GARAM: garam, KATA_LALUAN_HASH: hash_(garam, pw), KATA_LALUAN: "'" + pw, TOKEN: Utilities.getUuid() });
+  }
+  if (d.NAMA_GURU !== undefined && String(d.NAMA_GURU).trim()) ubah.NAMA_GURU = String(d.NAMA_GURU).trim().toUpperCase().replace(/\s+/g, ' ');
+  if (d.NO_TELEFON !== undefined && String(d.NO_TELEFON).trim()) ubah.NO_TELEFON = "'" + String(d.NO_TELEFON).trim().replace(/[^0-9+\- ]/g, '');
+  const perBaru = d.PERINGKAT ? normPeringkat_(d.PERINGKAT) : normPeringkat_(g.PERINGKAT);
+  if (d.PERINGKAT) ubah.PERINGKAT = perBaru;
+  if (d.KOD_SEKOLAH !== undefined && String(d.KOD_SEKOLAH).trim()) {
+    const kod = String(d.KOD_SEKOLAH).trim().toUpperCase().replace(/\s+/g, '');
+    if (!/^[A-Z]{3}[0-9]{4}$/.test(kod)) throw new Error('Kod sekolah tidak sah. Contoh: JBA6041.');
+    if (!sama_(kod, g.KOD_SEKOLAH) || perBaru !== normPeringkat_(g.PERINGKAT)) { sediaSekolah_(kod, perBaru); ubah.KOD_SEKOLAH = kod; }
+  }
+  if (d.STATUS) ubah.STATUS = String(d.STATUS).toUpperCase() === 'AKTIF' ? 'AKTIF' : 'TIDAK AKTIF';
+  setGuru_(g, ubah);
+  return g.EMEL;
+}
+function padamAkaun_(emel) {
+  const g = cariGuru_(emel); if (!g) throw new Error('Akaun ' + emel + ' tidak dijumpai.');
+  guruSheet_().deleteRow(g._row);
+  return emel;
+}
+
+/* ---------- GET ---------- */
+function doGet(e) {
+  try {
+    const action = (e && e.parameter && e.parameter.action) || 'getAll';
+    if (action === 'ping') return out_({ ok: true, msg: 'e-PBD PPKI API aktif' });
+    if (action === 'getAll') return out_({ ok: false, error: 'Sila log masuk melalui aplikasi e-PBD PPKI.' });
+    return out_({ ok: false, error: 'Tindakan tidak dikenali: ' + action });
+  } catch (err) { return out_({ ok: false, error: String(err.message || err) }); }
+}
+
+/* ====================== KELAS & TAHUN (SESI) ======================
+ * Setiap kelas bagi setiap tahun mempunyai 2 sheet sendiri:
+ *   "MURID 2026 2 AL BIRUNI"  dan  "MARKAH 2026 2 AL BIRUNI"
+ * Senarai semua kelas (termasuk tahun-tahun lepas) disimpan dalam 00_KELAS.
+ * Data tahun lepas tidak dipadam, jadi sejarah PBD sentiasa boleh dibuka semula.
+ */
+function kelasSheet_(peringkat) {
+  const p = normPeringkat_(peringkat), ss = ss_();
+  if (p === 'MENENGAH') { pastiSheetSM_(); return ss.getSheetByName(SH_SM.KELAS); }
+  let sh = ss.getSheetByName(SH.KELAS);
+  if (!sh) {
+    sh = ss.insertSheet(SH.KELAS, 0);
+    sh.getRange(1, 1, 1, KELAS_HEADERS.length).setValues([KELAS_HEADERS]).setFontWeight('bold').setBackground('#0f5257').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+  }
+  if (sh.getLastRow() < 2) {
+    if (ss.getSheetByName(SH.MURID) && !PropertiesService.getScriptProperties().getProperty('KELAS_ASAL_SIAP')) {
+      const t = {}; readTable_(SH.TETAPAN).forEach(r => { if (!String(r.KOD_SEKOLAH || '').trim() || sama_(r.KOD_SEKOLAH, KOD_ASAL)) t[String(r.KUNCI).trim()] = r.NILAI; });
+      const sesi = String(t.SESI || new Date().getFullYear()), tahun = String(t.TAHUN || ''), nama = String(t.KELAS || 'KELAS 1');
+      appendObj_(sh, { ID_KELAS: kelasId_(sesi, tahun, nama), SESI: sesi, TAHUN: tahun, NAMA_KELAS: nama, NAMA_GURU_KELAS: t.NAMA_GURU_KELAS || '', SHEET_MURID: SH.MURID, SHEET_MARKAH: SH.MARKAH, STATUS: 'AKTIF', DICIPTA: new Date(), KOD_SEKOLAH: KOD_ASAL });
+    }
+    PropertiesService.getScriptProperties().setProperty('KELAS_ASAL_SIAP', '1');
+  }
+  return sh;
+}
+function kelasId_(sesi, tahun, nama, kod) { return ((kod ? String(kod) + '-' : '') + String(sesi) + '-' + String(tahun) + '-' + String(nama)).toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, ''); }
+function senaraiKelas_(kod, peringkat) { kelasSheet_(peringkat); return readSekolah_(shFor_('KELAS', peringkat), kod); }
+function kelas_(id, kod, bolehKosong, peringkat) {
+  const all = senaraiKelas_(kod, peringkat);
+  if (!all.length) { if (bolehKosong) return null; throw new Error('Tiada kelas berdaftar. Sila tambah kelas dahulu (menu Kelas & Tahun).'); }
+  if (!id || (bolehKosong && !all.some(x => String(x.ID_KELAS) === String(id)))) {
+    const sorted = all.slice().sort((a, b) => (+b.SESI || 0) - (+a.SESI || 0));
+    return sorted.find(k => String(k.STATUS).toUpperCase() !== 'ARKIB') || sorted[0];
+  }
+  const k = all.find(x => String(x.ID_KELAS) === String(id));
+  if (!k) throw new Error('Kelas "' + id + '" tidak dijumpai.');
+  return k;
+}
+function safeName_(s) { return String(s).replace(/[\[\]\*\?\/\\:']/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90); }
+
+function createKelas_(d, kod, peringkat) {
+  const p = normPeringkat_(peringkat), isSM = p === 'MENENGAH';
+  const sesi = String(d.SESI || '').trim(), tahun = String(d.TAHUN || '').trim(), nama = String(d.NAMA_KELAS || '').trim().toUpperCase();
+  if (!sesi || !nama) throw new Error('Sesi (tahun kalendar) dan nama kelas wajib diisi.');
+  const id = (!isSM && sama_(kod, KOD_ASAL)) ? kelasId_(sesi, tahun, nama) : kelasId_(sesi, tahun, nama, kod);
+  if (readTable_(shFor_('KELAS', p)).some(k => k.ID_KELAS === id)) throw new Error('Kelas ' + tahun + ' ' + nama + ' bagi sesi ' + sesi + ' sudah wujud.');
+  const ss = ss_();
+  const prefM = isSM ? 'SM_MURID ' : 'MURID ', prefK = isSM ? 'SM_MARKAH ' : 'MARKAH ';
+  const label = safeName_((!isSM && sama_(kod, KOD_ASAL) ? '' : kod + ' ') + sesi + ' ' + tahun + ' ' + nama);
+  const nmM = (prefM + label).slice(0, 95), nmK = (prefK + label).slice(0, 95);
+  if (ss.getSheetByName(nmM) || ss.getSheetByName(nmK)) throw new Error('Kelas ini sudah wujud.');
+  const shM = ss.insertSheet(nmM), shK = ss.insertSheet(nmK);
+  const tmpl = ss.getSheetByName(SH.MURID);
+  const mh = tmpl ? headers_(tmpl) : ['ID_MURID','BIL','NAMA_MURID','NAMA_RINGKAS','NO_MYKID','JANTINA','ULASAN_GURU_KELAS','AKTIF','CATATAN'];
+  const hdrBg = isSM ? '#14213d' : '#0f5257';
+  [[shM, mh], [shK, MARKAH_HEADERS]].forEach(([sh, h]) => { sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold').setBackground(hdrBg).setFontColor('#ffffff'); sh.setFrozenRows(1); });
+  if (d.SALIN_DARI) {
+    const src = kelas_(d.SALIN_DARI, kod, false, p);
+    const rows = readTable_(src.SHEET_MURID).filter(r => String(r.AKTIF || 'YA').toUpperCase() !== 'TIDAK');
+    if (rows.length) shM.getRange(2, 1, rows.length, mh.length).setValues(rows.map(r => mh.map(h => h === 'ULASAN_GURU_KELAS' ? '' : (r[h] === undefined ? '' : r[h]))));
+  }
+  appendObj_(kelasSheet_(p), { ID_KELAS: id, SESI: sesi, TAHUN: tahun, NAMA_KELAS: nama, NAMA_GURU_KELAS: String(d.NAMA_GURU_KELAS || '').toUpperCase(), SHEET_MURID: shM.getName(), SHEET_MARKAH: shK.getName(), STATUS: 'AKTIF', DICIPTA: new Date(), KOD_SEKOLAH: kod, TAHAP: normTahap_(d.TAHAP, p) || tahapDariTahun_(tahun, p) });
+  return id;
+}
+function setStatusKelas_(id, status, kod, peringkat) {
+  const sh = kelasSheet_(peringkat); const k = kelas_(id, kod, false, peringkat); const hd = headers_(sh);
+  sh.getRange(k._row, hd.indexOf('STATUS') + 1).setValue(status);
+  return id;
+}
+function updateKelas_(id, data, kod, peringkat) {
+  const p = normPeringkat_(peringkat), sh = kelasSheet_(p); const k = kelas_(id, kod, false, p); const hd = headers_(sh);
+  if (data.TAHAP !== undefined) data.TAHAP = normTahap_(data.TAHAP, p) || tahapDariTahun_(data.TAHUN !== undefined ? data.TAHUN : k.TAHUN, p);
+  Object.keys(KELAS_KEYS).forEach(key => { const c = hd.indexOf(KELAS_KEYS[key]); if (data[key] !== undefined && c > -1) sh.getRange(k._row, c + 1).setValue(data[key]); });
+}
+function editKelas_(id, d, kod, peringkat) {
+  const k = kelas_(id, kod, false, peringkat);
+  const nama = String(d.NAMA_KELAS != null ? d.NAMA_KELAS : k.NAMA_KELAS).trim().toUpperCase();
+  const sesi = String(d.SESI != null ? d.SESI : k.SESI).trim();
+  if (!sesi || !nama) throw new Error('Sesi dan nama kelas wajib diisi.');
+  updateKelas_(id, { SESI: sesi, TAHUN: String(d.TAHUN != null ? d.TAHUN : k.TAHUN).trim(), KELAS: nama,
+    NAMA_GURU_KELAS: String(d.NAMA_GURU_KELAS != null ? d.NAMA_GURU_KELAS : k.NAMA_GURU_KELAS).trim().toUpperCase(), TAHAP: d.TAHAP }, kod, peringkat);
+  return id;
+}
+function padamKelas_(id, kod, peringkat) {
+  const sh = kelasSheet_(peringkat); const k = kelas_(id, kod, false, peringkat); const ss = ss_();
+  [k.SHEET_MURID, k.SHEET_MARKAH].forEach(n => {
+    if (!n || n === SH.MURID || n === SH.MARKAH) return;
+    const s = ss.getSheetByName(n); if (s && ss.getSheets().length > 1) ss.deleteSheet(s);
+  });
+  sh.deleteRow(k._row);
+  return id;
+}
+
+function getAll_(kelasId, guru) {
+  const kod = guru.KOD_SEKOLAH, p = normPeringkat_(guru.PERINGKAT);
+  const k = kelas_(kelasId, kod, true, p);
+  const set = settings_(kod, p);
+  delete set.ADMIN_PASSWORD;
+  const tahap = tahapKelas_(k, p);
+  if (k) { set.SESI = k.SESI; set.TAHUN = k.TAHUN; set.KELAS = k.NAMA_KELAS; set.NAMA_GURU_KELAS = k.NAMA_GURU_KELAS; }
+  else { set.SESI = set.SESI || new Date().getFullYear(); set.KELAS = set.KELAS || ''; }
+  set.TAHAP = tahap;
+  set.KOD_SEKOLAH = kod;
+  set.PERINGKAT = p;
+  const o = {
+    tetapan: set,
+    guru: awamGuru_(guru),
+    peringkat: p,
+    kelasAktif: k,
+    senaraiKelas: senaraiKelas_(kod, p),
+    murid: k ? readTable_(k.SHEET_MURID) : [],
+    tahap: tahap,
+    mp: mpSekolah_(kod, tahap, p),
+    markah: k ? readTable_(k.SHEET_MARKAH) : [],
+    tafsiran: readSekolah_(shFor_('TAFSIRAN', p), KOD_GLOBAL).filter(r => ikutTahap_(r, tahap, p)),
+    kemahiran: readCached_(shFor_('KEMAHIRAN', p)).filter(r => ikutTahap_(r, tahap, p)),
+    bahasa: readCached_(SH.BAHASA),
+    panduan: readCached_(SH.PANDUAN),
+    serverTime: new Date().toISOString()
+  };
+  if (guru._master) { o.senaraiSekolah = senaraiSekolah_(); o.akaun = senaraiAkaun_(); }
+  return o;
+}
+
+/* ---------- POST (semua tindakan edit memerlukan kata laluan) ---------- */
+/* ====================== KEHADIRAN SERENTAK (v9) ======================
+ * Setiap pelayar menghantar "hadir" setiap ~20 saat dengan halaman & kelas yang sedang dibuka.
+ * Disimpan dalam CacheService (bukan Sheet) supaya pantas dan tidak mengunci data.
+ * Pelayar menerima senarai guru lain yang sedang membuka halaman yang SAMA. */
+const HADIR_TTL = 60; // saat — dianggap sudah keluar jika tiada isyarat
+function hadir_(guru, body) {
+  const kod = String(guru.KOD_SEKOLAH).toUpperCase(), c = CacheService.getScriptCache(), key = 'HADIR_' + kod;
+  const sid = String(body.sid || '').slice(0, 40); if (!sid) return [];
+  const page = String(body.page || '').slice(0, 120), now = Date.now();
+  const lk = LockService.getScriptLock(); let ada = false; try { ada = lk.tryLock(3000); } catch (e) {}
+  try {
+    let m = {}; try { m = JSON.parse(c.get(key) || '{}'); } catch (e) {}
+    Object.keys(m).forEach(s => { if (now - m[s].t > HADIR_TTL * 1000) delete m[s]; });
+    if (page) m[sid] = { n: String(guru.NAMA_GURU || guru.EMEL || 'Guru'), e: String(guru.EMEL || ''), p: page, t: now };
+    else delete m[sid];
+    try { c.put(key, JSON.stringify(m), 600); } catch (e) {}
+    return Object.keys(m).filter(s => s !== sid && page && m[s].p === page).map(s => ({ nama: m[s].n, sejak: m[s].t }));
+  } finally { if (ada) lk.releaseLock(); }
+}
+
+function doPost(e) {
+  try { // isyarat kehadiran: tanpa kunci utama supaya tidak melambatkan guru lain yang sedang menyimpan
+    const b0 = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (b0.action === 'semakEmel') { // semakan pantas: emel sudah berdaftar? (tanpa kunci, tanpa migrasi)
+      const em = normEmel_(b0.emel);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return out_({ ok: true, sah: false, ada: false });
+      return out_({ ok: true, sah: true, ada: !!cariGuru_(em) });
+    }
+    if (b0.action === 'aiUlasan') { sahGuru_(b0.emel, b0.token, b0.sekolah, b0.peringkat); try { return out_({ ok: true, ulasan: aiUlasan_(b0), versi: VERSI_AI_ }); } catch (er) { const m = String(er && er.message || er); return out_({ ok: false, error: /^AI bermasalah/.test(m) ? m : 'AI bermasalah. Kod: AI-99' }); } }
+    if (b0.action === 'hadir') { const g0 = sahGuru_(b0.emel, b0.token, b0.sekolah, b0.peringkat); return out_({ ok: true, lain: hadir_(g0, b0) }); }
+  } catch (err) { return out_({ ok: false, error: String(err && err.message || err) }); }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const a = body.action;
+    migrasi_();
+    if (a === 'daftar') { const g = daftar_(body.data); return out_({ ok: true, emel: g.EMEL, token: g.TOKEN, guru: awamGuru_(g), data: getAll_('', g) }); }
+    if (a === 'login') { const g = login_(body.emel, body.password); log_('LOGIN', 'Guru log masuk', g); return out_({ ok: true, emel: g.EMEL, token: g.TOKEN, guru: awamGuru_(g), data: getAll_(body.kelas, g) }); }
+    if (a === 'loginMaster') { const tok = loginMaster_(body.password); const g = masterGuru_(body.sekolah, body.peringkat); log_('LOGIN_MASTER', 'Master Admin log masuk', g); return out_({ ok: true, emel: MASTER_EMEL, token: tok, guru: awamGuru_(g), data: getAll_(body.kelas, g) }); }
+    const guru = sahGuru_(body.emel, body.token, body.sekolah, body.peringkat);
+    const M = () => { if (!guru._master) throw new Error('Hanya Master Admin dibenarkan membuat perubahan ini.'); };
+    const kod = String(guru.KOD_SEKOLAH).toUpperCase();
+    const per = normPeringkat_(guru.PERINGKAT);
+    if (a === 'getAll') return out_({ ok: true, data: getAll_(body.kelas, guru) });
+    let res; let kid = body.kelas; let tokenBaru = null;
+    const K = () => kelas_(kid, kod, false, per);
+    const TH = d => normTahap_(d && d.TAHAP, per) || tahapKelas_(kelas_(kid, kod, true, per), per);
+    switch (a) {
+      case 'createKelas':   res = kid = createKelas_(body.data, kod, per); break;
+      case 'arkibKelas':    res = setStatusKelas_(body.id, body.status || 'ARKIB', kod, per); break;
+      case 'editKelas':     res = editKelas_(body.id, body.data || {}, kod, per); break;
+      case 'padamKelas':    res = padamKelas_(body.id, kod, per); if (String(kid) === String(body.id)) kid = ''; break;
+      case 'saveTetapan': {
+        const d = Object.assign({}, body.data || {});
+        if (!guru._master && String(d.ADMIN_PASSWORD || '').trim()) tokenBaru = tukarKataLaluan_(guru, String(d.ADMIN_PASSWORD).trim());
+        delete d.ADMIN_PASSWORD; delete d.KOD_SEKOLAH; delete d.PERINGKAT;
+        const k = kelas_(kid, kod, true, per); if (k) updateKelas_(k.ID_KELAS, d, kod, per);
+        delete d.TAHAP;
+        res = saveTetapan_(d, kod, per); break;
+      }
+      case 'saveMurid':     res = upsert_(K().SHEET_MURID, 'ID_MURID', body.data, 'M'); break;
+      case 'deleteMurid':   res = deleteMurid_(K(), body.id); break;
+      case 'saveMP':        res = saveMP_(body.data, kod, guru._master, TH(body.data), per); break;
+      case 'deleteMP':      M(); res = deleteMP_(body.id, KOD_GLOBAL, TH(body.data), per); break;
+      case 'saveMarkah':    res = saveMarkah_(K().SHEET_MARKAH, body.kod, body.rows); break;
+      case 'saveUlasanKelas': res = saveUlasanKelas_(K().SHEET_MURID, body.rows); break;
+      case 'saveTafsiran': {
+        M();
+        const d = Object.assign({}, body.data || {}); delete d.SEMUA_SEKOLAH;
+        if (!String(d.SET || '').trim() || !String(d.KOD_MP || '').trim()) throw new Error('Set dan Kod MP wajib diisi.');
+        res = saveTafsiran_(d, KOD_GLOBAL, TH(d), per); break;
+      }
+      case 'kemaskiniAkaun': M(); res = kemaskiniAkaun_(body.id, body.data); break;
+      case 'padamAkaun':     M(); res = padamAkaun_(body.id); break;
+      default: throw new Error('Tindakan tidak dikenali: ' + a);
+    }
+    log_(a, JSON.stringify(body.data && (body.data.ADMIN_PASSWORD || body.data.KATA_LALUAN) ? '(maklumat sulit disembunyikan) ' + (body.id || '') : (body.data || body.id || body.kod || '')).slice(0, 300), guru);
+    return out_({ ok: true, result: res, token: tokenBaru, data: getAll_(kid, guru) });
+  } catch (err) {
+    return out_({ ok: false, error: String(err.message || err) });
+  } finally { try { lock.releaseLock(); } catch (e) {} }
+}
+
+function headers_(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String); }
+
+function setTetapan_(kod, k, v, peringkat) {
+  const sh = sheet_(shFor_('TETAPAN', peringkat)); const hd = headers_(sh);
+  const cK = hd.indexOf('KUNCI') > -1 ? hd.indexOf('KUNCI') : 0, cN = hd.indexOf('NILAI') > -1 ? hd.indexOf('NILAI') : 1, cS = hd.indexOf('KOD_SEKOLAH');
+  const vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][cK]).trim() === k && sama_(vals[i][cS], kod)) { sh.getRange(i + 1, cN + 1).setValue(v); return; }
+  }
+  const o = { KOD_SEKOLAH: kod }; o[hd[cK]] = k; o[hd[cN]] = v; appendObj_(sh, o);
+}
+function saveTetapan_(data, kod, peringkat) {
+  Object.keys(data || {}).forEach(k => {
+    if (KELAS_KEYS[k]) return;
+    if (k === 'ADMIN_PASSWORD' || k === 'KOD_SEKOLAH' || k === 'PERINGKAT') return;
+    setTetapan_(kod, k, data[k], peringkat);
+  });
+  return true;
+}
+function upsertSekolah_(name, key, data, kod, tahap, peringkat) {
+  data = Object.assign({}, data || {}); data.KOD_SEKOLAH = kod;
+  if (!data[key]) throw new Error(key + ' wajib diisi.');
+  const sh = sheet_(name); const hd = headers_(sh); const vals = sh.getDataRange().getValues();
+  const cK = hd.indexOf(key), cS = hd.indexOf('KOD_SEKOLAH');
+  const cT = hd.indexOf('TAHAP'); tahap = normTahap_(tahap, peringkat);
+  let rowIdx = -1, kosong = -1;
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][cK]) === String(data[key]) && sama_(vals[i][cS], kod)) {
+    if (!tahap || cT < 0) { rowIdx = i; break; }
+    const t = normTahap_(vals[i][cT], peringkat);
+    if (t === tahap) { rowIdx = i; break; }
+    if (!t && kosong < 0) kosong = i;
+  }
+  if (rowIdx < 0 && kosong > -1) rowIdx = kosong;
+  else if (tahap) data.TAHAP = tahap;
+  const row = hd.map((h, j) => (data[h] !== undefined ? data[h] : (rowIdx > -1 ? vals[rowIdx][j] : '')));
+  if (rowIdx > -1) sh.getRange(rowIdx + 1, 1, 1, hd.length).setValues([row]);
+  else sh.appendRow(row);
+  return data[key];
+}
+
+function upsert_(name, key, data, prefix) {
+  const sh = sheet_(name);
+  const hd = headers_(sh);
+  const vals = sh.getDataRange().getValues();
+  if (!data[key]) {
+    if (!prefix) throw new Error(key + ' wajib diisi.');
+    let max = 0;
+    for (let i = 1; i < vals.length; i++) {
+      const n = parseInt(String(vals[i][0]).replace(/\D/g, ''), 10); if (n > max) max = n;
+    }
+    data[key] = prefix + String(max + 1).padStart(3, '0');
+  }
+  const keyCol = hd.indexOf(key);
+  let rowIdx = -1;
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][keyCol]) === String(data[key])) { rowIdx = i; break; }
+  const row = hd.map((h, j) => (data[h] !== undefined ? data[h] : (rowIdx > -1 ? vals[rowIdx][j] : '')));
+  if (rowIdx > -1) sh.getRange(rowIdx + 1, 1, 1, hd.length).setValues([row]);
+  else sh.appendRow(row);
+  return data[key];
+}
+
+function deleteRowsWhere_(name, col, val) {
+  const sh = sheet_(name);
+  const hd = headers_(sh); const c = hd.indexOf(col);
+  const vals = sh.getDataRange().getValues();
+  for (let i = vals.length - 1; i >= 1; i--) if (String(vals[i][c]) === String(val)) sh.deleteRow(i + 1);
+}
+function deleteMurid_(k, id) { deleteRowsWhere_(k.SHEET_MURID, 'ID_MURID', id); deleteRowsWhere_(k.SHEET_MARKAH, 'ID_MURID', id); return id; }
+function deleteMP_(kodMp, kodSekolah, tahap, peringkat) {
+  const sh = sheet_(shFor_('MP', peringkat)); const hd = headers_(sh); const c = hd.indexOf('KOD_MP'), cS = hd.indexOf('KOD_SEKOLAH'), cT = hd.indexOf('TAHAP');
+  const vals = sh.getDataRange().getValues(); tahap = normTahap_(tahap, peringkat);
+  for (let i = vals.length - 1; i >= 1; i--) if (String(vals[i][c]) === String(kodMp) && sama_(vals[i][cS], kodSekolah) && (!tahap || cT < 0 || ikutTahap_({ TAHAP: vals[i][cT] }, tahap, peringkat))) sh.deleteRow(i + 1);
+  return kodMp; }
+
+function saveMarkah_(sheetName, kod, rows) {
+  if (!kod) throw new Error('Kod mata pelajaran tiada.');
+  const sh = sheet_(sheetName);
+  const hd = headers_(sh);
+  const vals = sh.getDataRange().getValues();
+  const idx = {};
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][1]) === String(kod)) idx[String(vals[i][0])] = i + 1;
+  const now = new Date();
+  const append = [];
+  (rows || []).forEach(r => {
+    const line = hd.map(h => {
+      if (h === 'ID_MURID') return r.ID_MURID;
+      if (h === 'KOD_MP') return kod;
+      if (h === 'DIKEMASKINI') return now;
+      return r[h] === undefined || r[h] === null ? '' : r[h];
+    });
+    if (idx[r.ID_MURID]) sh.getRange(idx[r.ID_MURID], 1, 1, hd.length).setValues([line]);
+    else append.push(line);
+  });
+  if (append.length) sh.getRange(sh.getLastRow() + 1, 1, append.length, hd.length).setValues(append);
+  return (rows || []).length;
+}
+
+function saveUlasanKelas_(sheetName, rows) {
+  const sh = sheet_(sheetName); const hd = headers_(sh);
+  const cId = hd.indexOf('ID_MURID'), cU = hd.indexOf('ULASAN_GURU_KELAS');
+  if (cId < 0 || cU < 0) throw new Error('Lajur ID_MURID atau ULASAN_GURU_KELAS tiada dalam Google Sheet.');
+  if (!Array.isArray(rows) || !rows.length) throw new Error('Tiada ulasan untuk disimpan.');
+  const vals = sh.getDataRange().getValues();
+  const updates = rows.map(r => {
+    if (!r || !String(r.ID_MURID || '').trim() || typeof r.ULASAN_GURU_KELAS !== 'string') throw new Error('Maklumat ulasan tidak sah.');
+    const matches = vals.slice(1).map((line, i) => String(line[cId]) === String(r.ID_MURID) ? i + 2 : 0).filter(Boolean);
+    if (matches.length !== 1) throw new Error('Rekod murid tidak dijumpai atau bertindih. Muat semula sebelum menyimpan.');
+    return { row: matches[0], value: r.ULASAN_GURU_KELAS };
+  });
+  updates.forEach(u => sh.getRange(u.row, cU + 1).setValue(u.value.startsWith('=') ? "'" + u.value : u.value));
+  SpreadsheetApp.flush();
+  return updates.length;
+}
+
+function saveTafsiran_(d, kod, tahap, peringkat) {
+  const p = normPeringkat_(peringkat);
+  d = Object.assign({}, d || {}); d.KOD_SEKOLAH = kod; tahap = normTahap_(tahap, p) || normTahap_(d.TAHAP, p) || (p === 'MENENGAH' ? 'T1' : '1'); d.TAHAP = tahap;
+  const sh = sheet_(shFor_('TAFSIRAN', p)); const hd = headers_(sh);
+  const vals = sh.getDataRange().getValues();
+  const cS = hd.indexOf('SET'), cK = hd.indexOf('KOD_MP'), cSek = hd.indexOf('KOD_SEKOLAH'), cT = hd.indexOf('TAHAP');
+  const padan = i => String(vals[i][cS]) === String(d.SET) && String(vals[i][cK]) === String(d.KOD_MP) && sama_(vals[i][cSek], kod);
+  let tepat = -1; if (cT > -1) for (let i = 1; i < vals.length; i++) if (padan(i) && normTahap_(vals[i][cT], p) === tahap) { tepat = i; break; }
+  for (let i = 1; i < vals.length; i++) {
+    if (tepat > -1 ? i === tepat : (padan(i) && (cT < 0 || !normTahap_(vals[i][cT], p)))) {
+      ['MATA_PELAJARAN','TP1','TP2','TP3','TP4','TP5','TP6'].forEach(t => { const c = hd.indexOf(t); if (c > -1 && (t !== 'MATA_PELAJARAN' || String(d[t] || '').trim())) sh.getRange(i + 1, c + 1).setValue(d[t] || ''); });
+      return true;
+    }
+  }
+  sh.appendRow(hd.map(h => d[h] !== undefined ? d[h] : ''));
+  return true;
+}
+
+/* Jalankan sekali dari editor untuk menguji sambungan */
+function testSambungan() { migrasiSKBenut(); Logger.log(JSON.stringify(getAll_('', { KOD_SEKOLAH: KOD_ASAL, NAMA_GURU: 'UJIAN', EMEL: '' })).slice(0, 1500)); }
+
+const VERSI_AI_ = 'ai-v4'; // index.html semak nilai ini untuk pastikan kod Apps Script sudah dikemas kini
+/* ===================== ULASAN AI (Groq) =====================
+ * Sheet "apikey": A1 = kunci API, B1 = nama model bahasa.
+ * Hanya nama singkatan murid + TP dihantar ke AI (tiada MyKid / nama penuh). */
+function aiUlasan_(b) {
+  const sh = ss_().getSheetByName('apikey');
+  if (!sh) throw new Error('AI bermasalah. Kod: AI-01');
+  const key = String(sh.getRange('A1').getValue() || '').trim();
+  const model = String(sh.getRange('B1').getValue() || '').trim();
+  if (!key) throw new Error('AI bermasalah. Kod: AI-02');
+  if (!model) throw new Error('AI bermasalah. Kod: AI-06');
+  const nama = String(b.nama || 'Murid').slice(0, 40);
+  const mp = String(b.mp || '').slice(0, 120);
+  const senarai = (Array.isArray(b.bidang) ? b.bidang : []).slice(0, 12)
+    .map(x => ({ nama: String(x.nama || '').slice(0, 80), tp: Number(x.tp) || 0 })).filter(x => x.nama);
+  const bid = senarai.map(x => '- ' + x.nama + ': TP' + (x.tp || '-')).join('\n');
+  const tp = Number(b.tp) || '-';
+  const fokus = fokusIntervensi_(senarai, Number(b.tp) || 0);
+  // Ingat cadangan terdahulu (sekolah + mata pelajaran yang sama) supaya murid lain tidak dapat cadangan serupa.
+  const kunciIngat = 'AIUL_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(b.sekolah || '') + '|' + mp));
+  let lalu = []; try { lalu = JSON.parse(CacheService.getScriptCache().get(kunciIngat) || '[]'); } catch (e) {}
+  const SUASANA = ['buku teks atau buku latihan sekolah', 'kad huruf, suku kata atau perkataan yang ditulis sendiri di atas kertas', 'kertas dan pensel untuk menyurih atau menulis',
+    'buku cerita bergambar', 'barang sebenar di rumah seperti sudu, butang atau biji kacang untuk mengira dan mengasing', 'label dan tulisan pada barang di rumah',
+    'kalendar atau jam di dinding', 'gambar dalam buku atau surat khabar lama', 'lembaran kerja ringkas yang ditulis sendiri oleh ibu bapa'];
+  const suasana = SUASANA[Math.floor(Math.random() * SUASANA.length)];
+  const per = normPeringkat_(b.peringkat);
+  const isKR = per === 'MENENGAH' && normTahap_(b.tahap, 'MENENGAH') === 'KR';
+  const tahap = per === 'MENENGAH' ? (normTahap_(b.tahap, 'MENENGAH') || 'T1') : (String(b.tahap || '').replace(/\.0+$/, '') === '2' ? '2' : '1');
+  const tpN = Number(b.tp) || (senarai.length ? Math.round(senarai.reduce((x, y) => x + (y.tp || 0), 0) / senarai.length) : 0);
+  const skala = isKR ? SKALA_TP_.KR : (per === 'MENENGAH' ? SKALA_TP_.SM : SKALA_TP_[tahap]);
+  const had = Math.min(80, Math.max(10, parseInt(b.had, 10) || 30));
+  const bilAyat = had <= 15 ? 'SATU ayat sahaja' : had <= 30 ? '2 ayat pendek' : had <= 50 ? '2 hingga 3 ayat' : '3 hingga 4 ayat';
+  const tafsiranRasmi = String(b.tafsiran || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const labelTahap = isKR ? 'KSSMPK Kefungsian Rendah (Skala TP1-TP3)' : (per === 'MENENGAH' ? ('KSSMPK ' + tahap.replace('T', 'Tingkatan ') + ' (Sekolah Menengah)') : ('KSSRPK Tahap ' + tahap + (tahap === '2' ? ' (Tahun 4-6)' : ' (Tahun 1-3)')));
+  const prompt = 'Murid: ' + nama + '\nMata pelajaran: ' + mp + '\nTahap kelas: ' + labelTahap +
+    '\nTP keseluruhan: TP' + tp + '\nTP setiap bidang:\n' + (bid || '- (tiada butiran bidang)') +
+    '\n\nSKALA TP (TP1 PALING RENDAH, ' + (isKR ? 'TP3' : 'TP6') + ' PALING TINGGI — semakin tinggi TP semakin bagus):\n' +
+    skala.map((d, i) => 'TP' + (i + 1) + ': ' + d + ' [nada: ' + NADA_TP_[i + 1] + ']').join('\n') +
+    (tafsiranRasmi ? '\nTafsiran rasmi TP' + tpN + ' bagi mata pelajaran ini: ' + tafsiranRasmi : '') +
+    '\n\nFOKUS INTERVENSI: ' + fokus.teks +
+    '\nCara bantuan ikut tahap: ' + fokus.cara +
+    '\nIdea bahan di rumah (guna jika sesuai dengan bidang; jika tidak, pilih bahan lain yang mudah didapati): ' + suasana + '.' +
+    (lalu.length ? '\nCadangan ini SUDAH diberi kepada murid lain, JANGAN ulang aktiviti serupa:\n' + lalu.map(x => '- ' + x).join('\n') : '') +
+    '\n\nTulis ulasan seperti seorang GURU CEMERLANG PENDIDIKAN KHAS menulis dalam laporan murid untuk ibu bapa: ayat biasa yang semula jadi, mesra, jujur dan padat, bunyi macam manusia sebenar, bukan iklan atau robot. ' +
+    bilAyat + ', JUMLAH MAKSIMUM ' + had + ' PATAH PERKATAAN. Kira perkataan sebelum menjawab; jika lebih, pendekkan. ' +
+    'Ayat pertama: gambarkan tahap ' + nama + ' dengan JUJUR ikut SKALA TP dan nada TP' + tpN + ' (' + NADA_TP_[tpN || 1] + '). Tidak perlu sebut perkataan "TP"; huraikan apa yang murid sudah atau belum boleh buat. ' +
+    (tpN && tpN <= 3 ? 'TP' + tpN + ' ialah tahap RENDAH, BUKAN pencapaian yang bagus. WAJIB nyatakan murid masih memerlukan bimbingan. DILARANG perkataan pujian seperti cemerlang, bagus, hebat, tahniah, syabas, sangat baik, menguasai. Hanya boleh sebut usaha atau minat murid secara ringkas. '
+      : 'TP' + tpN + ' ialah tahap TINGGI: iktiraf pencapaian dengan sewajarnya tanpa berlebihan; jangan kata murid lemah atau perlu bimbingan penuh. ') +
+    (had <= 15 ? 'Jika masih ada ruang dalam had, tambah cadangan ringkas untuk ibu bapa dalam ayat yang sama. '
+      : 'Ayat seterusnya: SATU aktiviti khusus yang ibu bapa boleh buat di rumah untuk bidang dalam FOKUS INTERVENSI (apa dan bagaimana), bukan nasihat umum. ') +
+    'SYARAT CADANGAN: WAJIB berunsur AKADEMIK, iaitu melatih terus kemahiran pelajaran dalam bidang fokus (contoh membaca, menulis, menyebut, mengenal huruf atau nombor, mengira, mengasing, menyusun langkah). ' +
+    'Mesti MUDAH dibuat oleh ibu bapa di rumah dalam 5 hingga 10 minit, menggunakan bahan yang sudah ada seperti buku, kertas, pensel atau barang sebenar. Sesuai dengan tahap murid berkeperluan khas. ' +
+    'DILARANG cadangan mengarut atau tidak berkaitan pelajaran: mainan, permainan, telefon, tablet, video, televisyen, lagu atau tarian (kecuali mata pelajaran Muzik), keluar ke kedai, pasar atau taman, haiwan peliharaan, atau aktiviti yang perlu membeli barang. ' +
+    'GAYA: jangan guna tanda seru, tanda petik, sempang panjang, titik bertindih, koma bertitik atau emoji. Jangan mula dengan "memang". Jangan guna "jom". ' +
+    'DILARANG: "berlatih setiap hari", "luangkan masa", "teruskan usaha", "untuk meningkatkan lagi kemahiran". Jangan ulang nama mata pelajaran. ' +
+    '\nContoh gaya (jangan tiru bulat-bulat): "Ammar masih memerlukan bimbingan penuh untuk menyebut suku kata mudah. Di rumah, tulis tiga suku kata di atas kertas dan minta dia sebut serta surih semula." / ' +
+    '"Aina sudah boleh membaca ayat pendek sendiri. Minta dia baca satu petikan dalam buku cerita dan tulis dua ayat tentang isinya." / ' +
+    '"Danish masih perlukan bimbingan untuk mengira hingga lima. Di rumah, minta dia kira sudu di atas meja sambil menyentuh satu demi satu." ' +
+    'Jawab dengan ulasan sahaja tanpa tajuk atau tanda petik.';
+  // Tetapan khas ikut jenis model: model "berfikir" (gpt-oss, qwen3, deepseek) perlu ruang token lebih
+  // dan pemikirannya disembunyikan, jika tidak jawapan kosong (AI-03).
+  const extra = m => /gpt-oss/i.test(m) ? { reasoning_effort: 'low', include_reasoning: false }
+    : /qwen3|deepseek|r1/i.test(m) ? { reasoning_format: 'hidden' } : {};
+  const fetchAI = (m, tambahan) => { let r; try { r = UrlFetchApp.fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + key },
+    payload: JSON.stringify(Object.assign({ model: m, temperature: 0.6, max_tokens: 1500, messages: [
+      { role: 'system', content: 'Anda Guru Cemerlang Pendidikan Khas (Program Pendidikan Khas Integrasi, PPKI) di Malaysia yang berpengalaman dan pakar Pentaksiran Bilik Darjah KSSRPK. Skala Tahap Penguasaan: TP1 paling rendah (perlu bimbingan penuh) hingga TP6 paling tinggi (cemerlang). Ulasan anda jujur ikut TP sebenar murid, empati terhadap murid berkeperluan khas, positif tanpa berlebihan, padat (patuhi had patah perkataan), dengan satu cadangan aktiviti akademik yang mudah dibuat ibu bapa di rumah (bukan mainan, gajet atau aktiviti di luar). Jawab terus dengan ulasan sahaja.' },
+      { role: 'user', content: prompt }] }, tambahan))
+  }); } catch (e) { console.error(e); throw new Error(/permission|kebenaran/i.test(String(e)) ? 'AI bermasalah. Kod: AI-04' : 'AI bermasalah. Kod: AI-05'); }
+    let j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
+    return { code: r.getResponseCode(), j: j };
+  };
+  const teks_ = j => String((((j.choices || [])[0] || {}).message || {}).content || '')
+    .replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').trim().replace(/^["'“”]+|["'“”]+$/g, '').trim();
+  const cuba = m => { // satu model: dengan tetapan khas, kemudian tanpa (jika Groq tolak parameter)
+    let x = fetchAI(m, extra(m));
+    if (x.code === 400 && Object.keys(extra(m)).length && !/decommission|not exist|model_not_found/i.test(JSON.stringify(x.j.error || ''))) x = fetchAI(m, {});
+    x.t = x.code === 200 ? teks_(x.j) : '';
+    if (x.code !== 200 || !x.t) console.error('AI [' + m + '] ' + x.code + ': ' + JSON.stringify(x.j.error || (((x.j.choices || [])[0] || {}).finish_reason) || '').slice(0, 300));
+    return x;
+  };
+  // 1) cuba model dalam B1; 2) jika gagal (model ditamatkan / jawapan kosong / ralat pelayan) cuba model aktif lain
+  const BERHENTI = c => c === 401 || c === 403 || c === 429 || c === 413; // kunci salah / had penggunaan: model lain tidak membantu
+  let res = cuba(model), guna = model;
+  if (!res.t && !BERHENTI(res.code)) {
+    const calon = modelGroqSenarai_(key).filter(id => id !== model).slice(0, 4);
+    for (const m of calon) { const x = cuba(m); if (x.t) { res = x; guna = m; break; } if (BERHENTI(x.code)) { res = x; break; } }
+  }
+  const lulus = t => sesuaiTP_(manusiakan_(t), tpN) && akademik_(manusiakan_(t), mp);
+  if (res.t && !lulus(res.t)) { // AI tersalah nada (cth. TP1 dipuji "cemerlang") atau cadangan tidak akademik — cuba sekali lagi
+    const ulang = cuba(guna); if (ulang.t && lulus(ulang.t)) res = ulang;
+  }
+  if (res.t) {
+    res.t = kemasUlasan_(res.t, nama, tpN, had, mp);
+    try { // simpan ayat cadangan (ayat ke-2) untuk 6 jam; maksimum 8 cadangan terkini
+      const ay = res.t.match(/[^.!?]+[.!?]+/g) || [res.t];
+      lalu = [String(ay[ay.length - 1] || '').trim().slice(0, 200)].concat(lalu).slice(0, 8);
+      CacheService.getScriptCache().put(kunciIngat, JSON.stringify(lalu), 21600);
+    } catch (e) {}
+    if (guna !== model) { try { sh.getRange('B1').setValue(guna); sh.getRange('C1').setValue('Model "' + model + '" tidak berfungsi. Ditukar automatik ke "' + guna + '" pada ' + new Date()); } catch (e) {} }
+    return res.t;
+  }
+  const SEBAB = { 401: 'API key Groq di sel A1 salah atau telah dipadam — jana kunci baharu di console.groq.com/keys',
+    403: 'akaun Groq tiada kebenaran', 429: 'had penggunaan percuma Groq dicapai — tunggu 1 minit dan cuba lagi', 413: 'permintaan terlalu panjang' };
+  if (res.code !== 200) throw new Error('AI bermasalah. Kod: AI-' + res.code + (SEBAB[res.code] ? ' (' + SEBAB[res.code] + ')' : (res.code >= 500 ? ' (pelayan Groq sibuk — cuba sebentar lagi)' : '')));
+  throw new Error('AI bermasalah. Kod: AI-03 (semua model AI tidak memberi jawapan — cuba sebentar lagi)');
+}
+/* ===== Skala TP KSSRPK (TP1 paling rendah -> TP6 paling tinggi) ikut tahap ===== */
+const SKALA_TP_ = {
+  'KR': [ // KSSMPK Kefungsian Rendah (Skala TP1-TP3)
+    'memberi respons dengan bimbingan penuh guru',
+    'menguasai perkara asas dan melakukan aktiviti dengan bimbingan',
+    'mengaplikasikan pengetahuan dan kemahiran secara konsisten dengan bimbingan minimum'],
+  'SM': [ // KSSMPK Sekolah Menengah (Tingkatan 1-5, Skala TP1-TP6)
+    'sangat terhad; baru mengenal asas dan memerlukan bimbingan penuh guru',
+    'terhad; boleh mengenal dan mengikut langkah asas dengan banyak bimbingan',
+    'memuaskan; boleh mengaplikasi kemahiran asas dengan bimbingan minimum',
+    'baik; boleh melaksanakan tugasan dan kemahiran secara berdikari',
+    'sangat baik; berdikari, sistematik dan konsisten dalam pelbagai situasi',
+    'cemerlang; menguasai kemahiran sepenuhnya dan boleh membimbing rakan'],
+  '1': [ // Tahap 1 (Tahun 1-3): kesediaan belajar & kemahiran asas
+    'baru mula mengenal kemahiran asas; perlu bimbingan penuh guru',
+    'boleh mengenal dan meniru dengan banyak bimbingan',
+    'boleh memberi respons dan melakukan kemahiran asas dengan bimbingan minimum',
+    'boleh melakukan rutin asas secara berdikari',
+    'berdikari dan konsisten melakukan kemahiran di dalam kelas',
+    'berdikari, konsisten dan boleh menjadi contoh kepada rakan'],
+  '2': [ // Tahap 2 (Tahun 4-6): kemahiran berfungsi & persediaan berdikari
+    'baru mula mengenal langkah kerja; perlu bimbingan penuh guru',
+    'boleh mengikut langkah kerja asas dengan banyak bimbingan',
+    'boleh mengaplikasi langkah kerja asas dan mematuhi peraturan keselamatan dengan bimbingan minimum',
+    'boleh menyelesaikan masalah mudah secara berdikari',
+    'boleh menghasilkan projek atau produk ringkas dan mengaplikasikannya dalam situasi sebenar',
+    'mengaplikasi kemahiran dalam kehidupan sebenar secara konsisten dan boleh membimbing rakan']
+};
+/* ===== KEMAS ULASAN AI (kod yang SAMA dalam code.gs & index.html) =====
+ * Skala TP: TP1 paling rendah -> TP6 paling tinggi. Semakin tinggi TP semakin bagus.
+ * 1) manusiakan_  : buang gaya "robot" (sempang panjang, tanda seru, tanda petik, koma bertitik)
+ * 2) betulkanNada_: TP1-3 tidak boleh dipuji (cemerlang/bagus...), TP4-6 tidak boleh dikata lemah
+ * 3) ringkas_     : tidak melebihi had patah perkataan yang dipilih guru */
+const NADA_TP_ = { 1: 'masih di peringkat awal, perlu bimbingan penuh', 2: 'sedang membina asas, perlu banyak bimbingan',
+  3: 'semakin maju, perlu bimbingan minimum', 4: 'baik, boleh berdikari', 5: 'sangat baik, berdikari dan konsisten', 6: 'cemerlang, boleh menjadi contoh rakan' };
+const PUJIAN_TINGGI_ = /cemerlang|hebat|sangat baik|amat baik|menguasai|mantap|luar biasa|terbaik|bagus|tahniah|syabas|membanggakan|sangat memuaskan|berdikari sepenuhnya|pencapaian (yang )?baik/i;
+const RENDAH_ = /bimbingan penuh|peringkat awal|masih lemah|\blemah\b|baru mula/i;
+const HAD_PERKATAAN_ = 30;
+function sesuaiTP_(t, tp) {
+  t = String(t || ''); tp = Number(tp) || 0; if (!tp) return true;
+  if (tp <= 3 && PUJIAN_TINGGI_.test(t)) return false;
+  if (tp >= 4 && RENDAH_.test(t)) return false;
+  const disebut = (t.match(/TP\s*(\d)/gi) || []).map(x => Number(x.replace(/\D/g, '')));
+  return !disebut.length || disebut.indexOf(tp) > -1;
+}
+function manusiakan_(t) {
+  return String(t || '')
+    .replace(/[“”"«»]/g, '').replace(/[‘’]/g, "'").replace(/'([^']{1,40})'/g, '$1')
+    .replace(/\s*[–—]\s*/g, ', ').replace(/(\w)‑(\w)/g, '$1-$2')
+    .replace(/\s*;\s*/g, ', ').replace(/!+/g, '.').replace(/\s*:\s+/g, ', ')
+    .replace(/\s+([,.])/g, '$1').replace(/,\s*,/g, ',').replace(/\.\s*\./g, '.')
+    .replace(/\s+/g, ' ').trim()
+    .replace(/(^|[.?]\s+)([a-z])/g, (m, a, b) => a + b.toUpperCase());
+}
+const AYAT_TP_ = { // ayat ganti yang ringkas & bunyi macam guru sebenar, ikut TP
+  1: n => n + ' masih memerlukan bimbingan penuh guru.',
+  2: n => n + ' sudah mula mencuba tetapi masih perlukan banyak bimbingan.',
+  3: n => n + ' semakin maju dan boleh melakukannya dengan sedikit bimbingan.',
+  4: n => n + ' sudah boleh melakukannya sendiri dengan baik.',
+  5: n => n + ' berdikari dan konsisten, pencapaiannya sangat baik.',
+  6: n => n + ' cemerlang dan boleh membantu rakan lain.' };
+/* Cadangan untuk ibu bapa MESTI berunsur akademik & mudah dibuat di rumah (buku, kertas, pensel, barang sebenar).
+   Aktiviti yang tidak berkaitan pelajaran (mainan, video, gajet, keluar ke kedai/taman...) ditolak. */
+const LARANGAN_AKTIVITI_ = ['mainan', 'permainan', 'bermain', 'main', 'video', 'youtube', 'tiktok', 'telefon', 'tablet', 'gajet', 'gadget', 'televisyen', 'tv', 'kartun',
+  'lagu', 'menyanyi', 'nyanyi', 'menari', 'tarian', 'kedai', 'pasar', 'pasaraya', 'membeli-belah', 'taman', 'berjalan-jalan', 'bersiar-siar', 'cakap-cakap', 'kucing', 'haiwan peliharaan'];
+const IZIN_MP_ = [[/muzik/i, ['lagu', 'menyanyi', 'nyanyi']], [/jasmani|kesihatan|sukan/i, ['bermain', 'permainan', 'main', 'taman', 'berjalan-jalan']],
+  [/kemahiran hidup|pengurusan|urus diri|vokasional|masakan|perniagaan/i, ['kedai', 'pasar', 'pasaraya', 'membeli-belah']]];
+function akademik_(t, mp) {
+  mp = String(mp || ''); const izin = [];
+  IZIN_MP_.forEach(x => { if (x[0].test(mp)) izin.push.apply(izin, x[1]); });
+  const kata = LARANGAN_AKTIVITI_.filter(k => izin.indexOf(k) < 0).map(k => k.replace(/[-\s]/g, '[-\\s]?'));
+  return !new RegExp('(^|[^a-z])(' + kata.join('|') + ')([^a-z]|$)', 'i').test(String(t || ''));
+}
+function cadanganAkademik_(n, mp, tp) {
+  mp = String(mp || ''); const r = (Number(tp) || 3) <= 3;
+  if (/matematik/i.test(mp)) return r ? 'Di rumah, minta ' + n + ' mengira lima biji sudu atau butang sambil menyentuh satu demi satu.'
+    : 'Di rumah, beri ' + n + ' tiga soalan tambah dan tolak mudah menggunakan barang sebenar.';
+  if (/inggeris|english/i.test(mp)) return r ? 'Di rumah, tunjuk gambar dalam buku dan minta ' + n + ' sebut nama benda itu dalam bahasa Inggeris.'
+    : 'Di rumah, minta ' + n + ' baca dua ayat pendek dalam bahasa Inggeris dan terangkan maksudnya.';
+  if (/bahasa|komunikasi|literasi/i.test(mp)) return r ? 'Di rumah, tulis tiga suku kata di atas kertas dan minta ' + n + ' sebut serta surih semula.'
+    : 'Di rumah, minta ' + n + ' baca satu petikan pendek dan tulis dua ayat tentangnya.';
+  if (/sains/i.test(mp)) return r ? 'Di rumah, tunjuk tiga objek sebenar dan minta ' + n + ' sebut nama serta warnanya.'
+    : 'Di rumah, minta ' + n + ' asingkan barang ikut ciri yang sama dan terangkan sebabnya.';
+  if (/islam|agama|al-?quran|jawi/i.test(mp)) return r ? 'Di rumah, ulang bacaan doa harian bersama ' + n + ' satu baris demi satu baris.'
+    : 'Di rumah, minta ' + n + ' baca doa harian sendiri dan terangkan maksudnya secara ringkas.';
+  if (/moral|sivik/i.test(mp)) return 'Di rumah, baca satu cerita pendek bersama ' + n + ' dan tanya perbuatan yang betul dalam cerita itu.';
+  if (/kemahiran hidup|pengurusan|urus diri|vokasional|masakan/i.test(mp)) return r ? 'Di rumah, tunjuk cara satu tugasan mudah langkah demi langkah dan minta ' + n + ' ulang setiap langkah.'
+    : 'Di rumah, minta ' + n + ' sebut langkah kerja dahulu sebelum melakukan satu tugasan rumah sendiri.';
+  return r ? 'Di rumah, ulang latihan dalam buku sekolah selama 10 minit dan bimbing ' + n + ' langkah demi langkah.'
+    : 'Di rumah, minta ' + n + ' terangkan semula apa yang dipelajari dan selesaikan satu latihan dalam buku.';
+}
+function pecahAyat_(t) { return (String(t).match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [String(t)]).map(a => a.trim()).filter(Boolean); }
+function betulkanNada_(t, nama, tp, mp) {
+  tp = Number(tp) || 0;
+  const okTP = a => !tp || sesuaiTP_(a, tp), ok = a => okTP(a) && akademik_(a, mp);
+  if (ok(t)) return t;
+  const ayat = pecahAyat_(t);
+  const a1 = ok(ayat[0]) ? ayat[0] : AYAT_TP_[tp || 3](nama);
+  const cadangan = ayat.slice(1).filter(ok);
+  return a1 + ' ' + (cadangan.length ? cadangan.join(' ') : cadanganAkademik_(nama, mp, tp));
+}
+function ringkas_(t, had) {
+  had = Math.min(80, Math.max(10, parseInt(had, 10) || HAD_PERKATAAN_));
+  t = String(t || '').replace(/\s+/g, ' ').trim();
+  const n = x => x.split(' ').filter(Boolean).length;
+  const potong = (x, h) => { const w = x.split(' ').slice(0, h); // elak berakhir dengan kata sendi tergantung
+    while (w.length > 5 && /^(pada|di|dan|untuk|dengan|ke|yang|semasa|kepada|atau|serta|hujung|bersama|dalam|dari|daripada|tetapi|masih|sambil|bila|apabila|setiap)[,;:.]?$/i.test(w[w.length - 1])) w.pop();
+    return w.join(' ').replace(/[,;:\-–]+$/, '').replace(/[.!?]?$/, '.'); };
+  if (n(t) <= had) return t;
+  const ayat = pecahAyat_(t);
+  let a1 = ayat[0];
+  if (n(a1) > had) { const p = a1.split(/,\s*/)[0].trim(); a1 = n(p) >= 4 && n(p) <= had ? p.replace(/[.!?]?$/, '.') : potong(a1, had); }
+  if (ayat.length < 2) return a1;
+  const baki = ayat.slice(1), akhir = baki[baki.length - 1];
+  const hasil = [a1]; let guna = n(a1);
+  for (const x of baki.slice(0, -1)) { if (guna + n(x) + n(akhir) <= had) { hasil.push(x); guna += n(x); } }
+  const ruang = had - guna;
+  if (n(akhir) <= ruang) { if (n(akhir) >= 4) hasil.push(akhir); }
+  else if (ruang >= 6) { // ambil klausa (dipisah koma) sebanyak yang muat supaya ayat tidak tergantung
+    const kl = akhir.replace(/[.!?]$/, '').split(/,\s*/); let ambil = '';
+    const ambilK = []; for (const k of kl) { if (n(ambilK.concat(k).join(', ')) <= ruang) ambilK.push(k); else break; }
+    while (ambilK.length > 1 && /^(tiap|setiap|apabila|bila|sambil|semasa|kerana|supaya|jika|kalau|lalu|kemudian)\b/i.test(ambilK[ambilK.length - 1])) ambilK.pop(); // klausa tergantung
+    ambil = ambilK.join(', ');
+    if (n(ambil) >= 5) hasil.push(ambil.replace(/[.!?]?$/, '.')); else hasil.push(potong(akhir, ruang)); }
+  return hasil.join(' ');
+}
+function kemasUlasan_(t, nama, tp, had, mp) { return ringkas_(betulkanNada_(manusiakan_(t), nama, tp, mp), had); }
+/* ===== tamat KEMAS ULASAN AI ===== */
+/* Tentukan bidang yang paling perlu dibantu dan cara bantuan yang sesuai dengan tahap TP murid. */
+function fokusIntervensi_(senarai, tpAll) {
+  const ada = senarai.filter(x => x.tp > 0);
+  const caraTP = t => t <= 2 ? 'TP' + t + ' — bantuan penuh langkah demi langkah: tunjuk cara dulu, pegang tangan atau guna objek sebenar, satu langkah kecil sahaja, puji setiap cubaan.'
+    : t <= 4 ? 'TP' + t + ' — latihan berpandu dalam situasi harian: beri sedikit bantuan, kemudian biar murid cuba sendiri.'
+    : 'TP' + t + ' — pengayaan: beri cabaran baharu, minta murid buat sendiri, ajar ahli keluarga atau terangkan semula.';
+  if (!ada.length) { const t = tpAll || 3; return { teks: 'tiada butiran bidang; pilih satu kemahiran asas yang logik untuk mata pelajaran ini pada tahap TP' + t + '.', cara: caraTP(t) }; }
+  const min = Math.min.apply(null, ada.map(x => x.tp)), max = Math.max.apply(null, ada.map(x => x.tp));
+  const lemah = ada.filter(x => x.tp === min);
+  const pilih = lemah[Math.floor(Math.random() * lemah.length)];
+  const kuat = ada.filter(x => x.tp === max).map(x => x.nama).slice(0, 2).join(', ');
+  if (min === max) return { teks: 'semua bidang sama tahap (TP' + min + '); pilih bidang "' + pilih.nama + '" untuk dikukuhkan.', cara: caraTP(min) };
+  return { teks: 'bidang "' + pilih.nama + '" (TP' + min + ') paling perlu dibantu. ' + (max >= 4
+    ? 'Bidang paling kuat: ' + kuat + ' (TP' + max + ') — boleh guna kekuatan ini untuk bantu bidang lemah.'
+    : 'Bidang paling maju: ' + kuat + ' (TP' + max + ', masih tahap rendah — jangan sebut sebagai kekuatan atau cemerlang).'), cara: caraTP(min) };
+}
+/* Senarai model sembang Groq yang masih aktif, disusun ikut keutamaan (model biasa dahulu, model "berfikir" kemudian).
+   Diambil terus dari Groq dan disimpan dalam cache 6 jam. */
+const GROQ_PILIHAN = ['llama-3.3-70b-versatile', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'meta-llama/llama-4-scout-17b-16e-instruct', 'llama-3.1-8b-instant', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3-32b'];
+function modelGroqSenarai_(key) {
+  const c = CacheService.getScriptCache();
+  let ids = null; try { ids = JSON.parse(c.get('GROQ_MODELS') || 'null'); } catch (e) {}
+  if (!ids) {
+    try {
+      const r = UrlFetchApp.fetch('https://api.groq.com/openai/v1/models', { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key } });
+      if (r.getResponseCode() === 200) {
+        ids = (JSON.parse(r.getContentText()).data || []).filter(m => m.active !== false).map(m => String(m.id));
+        try { c.put('GROQ_MODELS', JSON.stringify(ids), 21600); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  if (!ids) return GROQ_PILIHAN.slice(); // tidak dapat senarai: cuba pilihan lalai
+  const sembang = ids.filter(id => !/whisper|tts|guard|playai|orpheus|distil|compound|allam/i.test(id));
+  return GROQ_PILIHAN.filter(id => sembang.indexOf(id) > -1).concat(sembang.filter(id => GROQ_PILIHAN.indexOf(id) < 0));
+}
+function modelGroqAktif_(key, kecuali) { return modelGroqSenarai_(key).filter(id => id !== kecuali)[0] || ''; }
+
+/* Jalankan SEKALI dari editor Apps Script (pilih fungsi ini > Run) untuk memberi kebenaran sambungan ke Groq. */
+function benarkanAI() {
+  const r = UrlFetchApp.fetch('https://api.groq.com/openai/v1/models', { muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + String(ss_().getSheetByName('apikey').getRange('A1').getValue()).trim() } });
+  Logger.log('Groq: ' + r.getResponseCode() + (r.getResponseCode() === 200 ? ' — sambungan OK' : ' — semak API key di A1'));
+  if (r.getResponseCode() === 200) Logger.log('Model aktif: ' + (JSON.parse(r.getContentText()).data || []).map(m => m.id).join(', '));
+}
