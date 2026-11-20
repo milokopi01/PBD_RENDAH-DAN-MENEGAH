@@ -1,4 +1,10 @@
 /**
+ * e-PBD PPKI : SISTEM PELAPORAN PENTAKSIRAN BILIK DARJAH (Google Apps Script)
+ * ID Google Sheet pangkalan data ditetapkan pada baris ke-5 di bawah.
+ */
+const SPREADSHEET_ID = '1PufIwFhCJ2xjNNcnZOwyN6VTy1sZdYaKxuexPXrjZrs';
+
+/**
  * =====================================================================
  *  e-PBD PPKI : SISTEM PELAPORAN PENTAKSIRAN BILIK DARJAH (Google Apps Script)
  *  Backend API — membaca & menulis data terus dari Google Sheet.
@@ -48,7 +54,6 @@
  *  (Jika skrip TIDAK dibuka dari dalam Google Sheet, isi SPREADSHEET_ID di bawah.)
  * =====================================================================
  */
-const SPREADSHEET_ID = ''; // kosongkan jika skrip dibuka dari Extensions > Apps Script
 
 /* ---------- MASTER ADMIN ---------- */
 const MASTER_PASSWORD = '202020';      // kata laluan Master Admin
