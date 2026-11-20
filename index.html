@@ -5,7 +5,7 @@
 /* ===== URL WEB APP GOOGLE APPS SCRIPT =====
    Tampal URL Web App (berakhir dengan /exec) DI ANTARA tanda petikan " " di bawah.
    Boleh tampal URL biasa (https://script.google.com/...) — TIDAK perlu atob / tukar kod. */
-var WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNfrojRwVlNI1ZyDwOoYrEFqv_mwoVlsaH6kn1wfDED1ev8nOpIAXJX900OnjriPbC/exec";
+var WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwJw9IWZ84X0hhG7_RI2cYALsRGsgkiE1d-EuPGgfWJpxHwiA2mmRBpaBjqrF6arXa1/exec";
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1646,8 +1646,26 @@ function profileHTML(s){
   </div>`;
 }
 V.sijil = () => { S.view='laporan'; S.lapPage='cert'; V.laporan(); }; // Sijil kini dalam Laporan Murid
+function cleanPdfName(s){ return String(s||'').replace(/[\\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim(); }
+function pdfKelasLabel(){
+  const t=T(), k=String(t.KELAS||'').trim(), th=String(t.TAHUN||'').trim();
+  if(isMenengah()) return k || th || 'PPKI';
+  if(!th) return k || 'PPKI';
+  const kUp=k.toUpperCase(), thUp=th.toUpperCase();
+  return (kUp.startsWith(thUp) || kUp.startsWith('TAHUN '+thUp)) ? k : ('Tahun '+th+' '+k).trim();
+}
+function pdfDocTitle(list, kind){
+  const t=T(), kls=pdfKelasLabel(), sesi=String(t.SESI||'').trim();
+  const jenis = kind==='cert' ? 'Sijil PBD' : 'Pelaporan PBD';
+  if(list.length===1){
+    const nama=String(list[0].NAMA_MURID||'Murid').trim();
+    return cleanPdfName(`${nama} - ${kls} - ${jenis}${sesi?' '+sesi:''}`);
+  }
+  return cleanPdfName(`${jenis} Semua Murid (${list.length}) - ${kls}${sesi?' '+sesi:''}`);
+}
 function printDocs(kind, ids){
   const list=ids.map(id=>students().find(s=>s.ID_MURID===id)).filter(Boolean);
+  if(!list.length) return toast('Tiada murid untuk dicetak.',true);
   const inc=lapInc();
   $('#printArea').innerHTML = list.map(s=>kind==='pakej'?reportHTML(s)+(inc.prof?profileHTML(s):'')+(inc.cert?certHTML(s):'')
     :kind==='cert'?certHTML(s)+(S.withProf!==false?profileHTML(s):''):reportHTML(s)).join('');
@@ -1657,7 +1675,12 @@ function printDocs(kind, ids){
   // pakej: laporan A4 menegak, spider chart & sijil A4 melintang dalam PDF yang sama
   ps.textContent = kind==='pakej' ? '@page{size:A4 portrait;margin:0}@page land{size:A4 landscape;margin:0}#printArea .cert,#printArea .prof{page:land}'
     : kind==='cert' ? '@page{size:A4 landscape;margin:0}' : '@page{size:A4 portrait;margin:0}';
-  toast(`Menyediakan ${list.length} dokumen untuk dicetak…`);
+  // Tetapkan nama fail PDF automatik (Nama Murid - Kelas - Pelaporan PBD Sesi)
+  window._origDocTitle = window._origDocTitle || document.title;
+  const pdfName = pdfDocTitle(list, kind);
+  document.title = pdfName;
+  window.addEventListener('afterprint', ()=>{ setTimeout(()=>{ if(window._origDocTitle) document.title=window._origDocTitle; }, 1000); }, {once:true});
+  toast(`Menyediakan PDF: ${pdfName}`);
   setTimeout(()=>window.print(),400);
 }
 
