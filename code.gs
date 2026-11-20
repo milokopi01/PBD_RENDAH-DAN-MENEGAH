@@ -76,7 +76,7 @@ const SH_SM = {
   TAFSIRAN: 'SM_05_TAFSIRAN_TP', KEMAHIRAN: 'SM_06_PENYATAAN_KEMAHIRAN'
 };
 const KOD_ASAL = 'JBA6041';          // sekolah rendah asal (SK BENUT)
-const KOD_ASAL_SM = 'SMK0001';       // sekolah menengah contoh (SMK SUNGAI KOB)
+const KOD_ASAL_SM = 'KEA5023';       // sekolah menengah contoh (SMK SUNGAI KOB)
 const GURU_HEADERS = ['KOD_SEKOLAH','NAMA_GURU','EMEL','NO_TELEFON','KATA_LALUAN_HASH','GARAM','TOKEN','STATUS','DIDAFTAR','LOG_MASUK_AKHIR','KATA_LALUAN','PERINGKAT'];
 function normPeringkat_(v) { return /MENENGAH|SMK|^SM$/i.test(String(v || '').trim()) ? 'MENENGAH' : 'RENDAH'; }
 function shFor_(key, peringkat) { return normPeringkat_(peringkat) === 'MENENGAH' ? (SH_SM[key] || SH[key]) : SH[key]; }
