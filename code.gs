@@ -554,6 +554,45 @@ function kelas_(id, kod, bolehKosong, peringkat) {
 }
 function safeName_(s) { return String(s).replace(/[\[\]\*\?\/\\:']/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90); }
 
+/* Senarai semua murid daripada kelas/sesi terdahulu sekolah ini (untuk dipilih semasa cipta kelas baharu) */
+function getMuridLepas_(kod, peringkat) {
+  const p = normPeringkat_(peringkat);
+  const ks = senaraiKelas_(kod, p).slice().sort((a, b) => (+b.SESI || 0) - (+a.SESI || 0) || String(a.NAMA_KELAS || '').localeCompare(String(b.NAMA_KELAS || '')));
+  const ss = ss_();
+  const seen = {};
+  const list = [];
+  const kelasInfo = [];
+  ks.forEach(k => {
+    const sh = k.SHEET_MURID ? ss.getSheetByName(k.SHEET_MURID) : null;
+    if (!sh) return;
+    const rows = readTable_(k.SHEET_MURID).filter(r => String(r.AKTIF || 'YA').toUpperCase() !== 'TIDAK' && String(r.NAMA_MURID || '').trim());
+    if (!rows.length) return;
+    const lbl = String(k.SESI || '') + ' • ' + (k.TAHUN ? String(k.TAHUN) + ' ' : '') + String(k.NAMA_KELAS || '');
+    let cnt = 0;
+    rows.forEach(r => {
+      const nama = String(r.NAMA_MURID || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      const icRaw = String(r.NO_MYKID == null ? '' : r.NO_MYKID).replace(/^'/, '').trim();
+      const icKey = icRaw.replace(/\D/g, '');
+      const key = (icKey.length >= 6) ? ('IC:' + icKey) : ('NM:' + nama);
+      if (seen[key]) return;
+      seen[key] = true;
+      cnt++;
+      list.push({
+        NAMA_MURID: nama,
+        NAMA_RINGKAS: String(r.NAMA_RINGKAS || '').trim(),
+        NO_MYKID: icRaw,
+        JANTINA: String(r.JANTINA || 'L').trim().toUpperCase(),
+        CATATAN: String(r.CATATAN || '').trim(),
+        ID_KELAS_ASAL: String(k.ID_KELAS || ''),
+        KELAS_ASAL: lbl
+      });
+    });
+    if (cnt > 0) kelasInfo.push({ ID_KELAS: String(k.ID_KELAS || ''), LABEL: lbl, BIL: cnt });
+  });
+  list.sort((a, b) => a.NAMA_MURID.localeCompare(b.NAMA_MURID));
+  return { murid: list, kelas: kelasInfo };
+}
+
 function createKelas_(d, kod, peringkat) {
   const p = normPeringkat_(peringkat), isSM = p === 'MENENGAH';
   const sesi = String(d.SESI || '').trim(), tahun = String(d.TAHUN || '').trim(), nama = String(d.NAMA_KELAS || '').trim().toUpperCase();
@@ -570,7 +609,24 @@ function createKelas_(d, kod, peringkat) {
   const mh = tmpl ? headers_(tmpl) : ['ID_MURID','BIL','NAMA_MURID','NAMA_RINGKAS','NO_MYKID','JANTINA','ULASAN_GURU_KELAS','AKTIF','CATATAN'];
   const hdrBg = isSM ? '#14213d' : '#0f5257';
   [[shM, mh], [shK, MARKAH_HEADERS]].forEach(([sh, h]) => { sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold').setBackground(hdrBg).setFontColor('#ffffff'); sh.setFrozenRows(1); });
-  if (d.SALIN_DARI) {
+  if (Array.isArray(d.MURID_PILIHAN) && d.MURID_PILIHAN.length) {
+    const outRows = d.MURID_PILIHAN.map((r, idx) => {
+      const ic = String(r.NO_MYKID == null ? '' : r.NO_MYKID).replace(/^'/, '').trim();
+      const obj = {
+        ID_MURID: 'M' + String(idx + 1).padStart(3, '0'),
+        BIL: idx + 1,
+        NAMA_MURID: String(r.NAMA_MURID || '').trim().toUpperCase(),
+        NAMA_RINGKAS: String(r.NAMA_RINGKAS || '').trim(),
+        NO_MYKID: ic ? ("'" + ic) : '',
+        JANTINA: String(r.JANTINA || 'L').trim().toUpperCase(),
+        ULASAN_GURU_KELAS: '',
+        AKTIF: 'YA',
+        CATATAN: String(r.CATATAN || '').trim()
+      };
+      return mh.map(h => obj[h] !== undefined ? obj[h] : '');
+    });
+    if (outRows.length) shM.getRange(2, 1, outRows.length, mh.length).setValues(outRows);
+  } else if (d.SALIN_DARI) {
     const src = kelas_(d.SALIN_DARI, kod, false, p);
     const rows = readTable_(src.SHEET_MURID).filter(r => String(r.AKTIF || 'YA').toUpperCase() !== 'TIDAK');
     if (rows.length) shM.getRange(2, 1, rows.length, mh.length).setValues(rows.map(r => mh.map(h => h === 'ULASAN_GURU_KELAS' ? '' : (r[h] === undefined ? '' : r[h]))));
@@ -669,6 +725,7 @@ function doPost(e) {
     }
     if (b0.action === 'aiUlasan') { sahGuru_(b0.emel, b0.token, b0.sekolah, b0.peringkat); try { return out_({ ok: true, ulasan: aiUlasan_(b0), versi: VERSI_AI_ }); } catch (er) { const m = String(er && er.message || er); return out_({ ok: false, error: /^AI bermasalah/.test(m) ? m : 'AI bermasalah. Kod: AI-99' }); } }
     if (b0.action === 'hadir') { const g0 = sahGuru_(b0.emel, b0.token, b0.sekolah, b0.peringkat); return out_({ ok: true, lain: hadir_(g0, b0) }); }
+    if (b0.action === 'getMuridLepas') { const g0 = sahGuru_(b0.emel, b0.token, b0.sekolah, b0.peringkat); return out_(Object.assign({ ok: true }, getMuridLepas_(String(g0.KOD_SEKOLAH).toUpperCase(), normPeringkat_(g0.PERINGKAT)))); }
   } catch (err) { return out_({ ok: false, error: String(err && err.message || err) }); }
   const lock = LockService.getScriptLock();
   try {

@@ -5,7 +5,7 @@
 /* ===== URL WEB APP GOOGLE APPS SCRIPT =====
    Tampal URL Web App (berakhir dengan /exec) DI ANTARA tanda petikan " " di bawah.
    Boleh tampal URL biasa (https://script.google.com/...) — TIDAK perlu atob / tukar kod. */
-var WEB_APP_URL = "https://script.google.com/macros/s/AKfycbza_Z2z_VpO445iKuDEcvE1-S_jH41jg2KvhY-kDQo8zX2jBwOqhddVYyBlxrIfQAjo/exec";
+var WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwJw9IWZ84X0hhG7_RI2cYALsRGsgkiE1d-EuPGgfWJpxHwiA2mmRBpaBjqrF6arXa1/exec";
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -266,6 +266,87 @@ select.tpsel.auto{animation:tpflash .75s ease-out}
 .cert-sm .ttl{background:linear-gradient(180deg,#14213d,#26466d);-webkit-background-clip:text;background-clip:text;color:transparent}
 .cert-sm td.c span{background:#14213d}
 @media print{.sheet-sm{box-shadow:none;margin:0;page-break-after:always;break-after:page;height:297mm;min-height:0;overflow:hidden;box-sizing:border-box}.sheet-sm .ul-tools button,.sheet-sm .ul-editor,.sheet-sm .ul-actions,.sheet-sm .py-btn,.sheet-sm .py-editor{display:none!important}.sheet-sm .py{padding-right:0}}
+
+
+/* ---------- Pelaporan Penuh Setiap Subjek Sekolah Menengah (KSSMPK — Executive) ---------- */
+.sheet-sub{background:#fff;color:#14213d;width:210mm;min-height:297mm;padding:10mm 12mm 10mm;margin:0 auto 20px;box-shadow:var(--shadow);font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:10.5px;position:relative;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sheet-sub .sub-kpm{background:linear-gradient(135deg,#0d1b36 0%,#183059 60%,#234575 100%);color:#fff;border-radius:12px;padding:13px 16px;display:flex;align-items:center;gap:14px;border-bottom:4px solid #c9962b;position:relative;overflow:hidden}
+.sheet-sub .sub-kpm:after{content:"";position:absolute;right:-24px;top:-24px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(201,150,43,.28),transparent 70%);pointer-events:none}
+.sheet-sub .sub-kpm img{width:56px;height:56px;object-fit:contain;background:#fff;border-radius:10px;padding:3px;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+.sheet-sub .sub-kpm .sub-lg{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#e5b94c,#b5831d);color:#0d1b36;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;font-family:Fraunces;flex:none}
+.sheet-sub .sub-kpm .sub-sch{flex:1}
+.sheet-sub .sub-kpm .sub-min{font-size:8.5px;letter-spacing:.22em;color:#f3d27a;font-weight:800;text-transform:uppercase}
+.sheet-sub .sub-kpm .sub-sch b{display:block;font-size:15px;letter-spacing:.03em;margin-top:2px;text-transform:uppercase}
+.sheet-sub .sub-kpm .sub-sch span{display:block;font-size:9.5px;opacity:.86;margin-top:1px}
+.sheet-sub .sub-kpm .sub-tag{text-align:right;font-size:9px;line-height:1.5;z-index:1}
+.sheet-sub .sub-kpm .sub-tag i{font-style:normal;display:inline-block;background:#c9962b;color:#0d1b36;font-weight:900;padding:3px 10px;border-radius:99px;letter-spacing:.08em;font-size:9px;margin-bottom:3px}
+.sheet-sub .sub-hero{margin:12px 0;border-radius:12px;border:1.5px solid #cfdbe8;background:linear-gradient(135deg,#f8fafd 0%,#eef3f9 100%);padding:12px 15px;display:grid;grid-template-columns:1fr 142px;gap:14px;align-items:center}
+.sheet-sub .sub-hero .sub-eyebrow{font-size:8.5px;letter-spacing:.18em;font-weight:800;color:#8a6312;text-transform:uppercase}
+.sheet-sub .sub-hero h2{margin:3px 0 6px;text-align:left;font-family:Fraunces,Georgia,serif;font-size:19px;letter-spacing:-.01em;color:#0d1b36;line-height:1.15}
+.sheet-sub .sub-hero .sub-stmt{background:#fff;border-left:3.5px solid #183059;border-radius:0 8px 8px 0;padding:7px 10px;font-size:10px;line-height:1.5;color:#273c57;box-shadow:0 2px 6px rgba(13,27,54,.05)}
+.sheet-sub .sub-hero .sub-stmt b{display:block;font-size:8.5px;letter-spacing:.08em;color:#5c708a;text-transform:uppercase;margin-bottom:2px}
+.sheet-sub .sub-tpcard{background:#fff;border:1.5px solid #d5dfea;border-radius:12px;padding:10px 8px;text-align:center;box-shadow:0 6px 14px -8px rgba(13,27,54,.2)}
+.sheet-sub .sub-tpcard .sub-ring{width:62px;height:62px;border-radius:50%;margin:0 auto 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:'JetBrains Mono',monospace;box-shadow:0 6px 14px -4px rgba(0,0,0,.28)}
+.sheet-sub .sub-tpcard .sub-ring small{font-size:8px;letter-spacing:.14em;opacity:.9;font-weight:700}
+.sheet-sub .sub-tpcard .sub-ring b{font-size:24px;line-height:1;font-weight:900}
+.sheet-sub .sub-tpcard .sub-lbl{font-size:9px;font-weight:800;letter-spacing:.06em;color:#0d1b36;text-transform:uppercase}
+.sheet-sub .sub-tpcard .sub-scale{font-size:8px;color:#64748b;margin-top:2px}
+.sheet-sub .sub-info{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #d2deeb;border-radius:10px;overflow:hidden;margin-bottom:12px;background:#fff}
+.sheet-sub .sub-info .si{padding:6px 10px;border-bottom:1px solid #e6edf5;border-right:1px solid #e6edf5}
+.sheet-sub .sub-info .si:nth-child(3n){border-right:0}
+.sheet-sub .sub-info .si:nth-last-child(-n+3){border-bottom:0}
+.sheet-sub .sub-info .si b{display:block;font-size:8px;letter-spacing:.08em;color:#5c708a;text-transform:uppercase;margin-bottom:2px}
+.sheet-sub .sub-info .si span{font-weight:800;color:#0d1b36;font-size:10px}
+.sheet-sub .sub-sec-hd{display:flex;justify-content:space-between;align-items:center;margin:8px 0 6px}
+.sheet-sub .sub-sec-hd b{font-size:10px;letter-spacing:.12em;color:#0d1b36;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.sheet-sub .sub-sec-hd span{font-size:9px;color:#5c708a;font-weight:600}
+.sheet-sub table.sub-tbl{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #c9d6e4;border-radius:10px;overflow:hidden}
+.sheet-sub table.sub-tbl th{background:#0d1b36;color:#fff;font-size:9px;letter-spacing:.08em;padding:7px 9px;text-align:left;border-bottom:2.5px solid #c9962b;text-transform:uppercase}
+.sheet-sub table.sub-tbl td{padding:7px 9px;border-bottom:1px solid #e5ecf4;vertical-align:top;line-height:1.48}
+.sheet-sub table.sub-tbl tbody tr:nth-child(even) td{background:#f8fafd}
+.sheet-sub table.sub-tbl tbody tr:last-child td{border-bottom:0}
+.sheet-sub .sub-num{width:28px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:800;color:#64748b}
+.sheet-sub .sub-kname{width:24%;font-weight:800;color:#0d1b36;font-size:10px}
+.sheet-sub .sub-ktp{width:12%;text-align:center}
+.sheet-sub .sub-pill{display:inline-block;padding:3px 9px;border-radius:99px;font-weight:900;color:#fff;font-size:10px;font-family:'JetBrains Mono',monospace}
+.sheet-sub .sub-mbar{height:4px;border-radius:99px;background:#e2e8f0;margin-top:4px;overflow:hidden}
+.sheet-sub .sub-mbar i{display:block;height:100%;border-radius:99px}
+.sheet-sub .sub-ul{margin:12px 0 10px;padding:9px 13px;border-left:4px solid #c9962b;background:linear-gradient(135deg,#fffdf6,#fbf5e4);border-top:1px solid #efe3c2;border-right:1px solid #efe3c2;border-bottom:1px solid #efe3c2;border-radius:0 10px 10px 0}
+.sheet-sub .sub-ul b{display:block;font-size:9px;letter-spacing:.1em;color:#8a6312;margin-bottom:4px;text-transform:uppercase}
+.sheet-sub .sub-sig{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:20px;font-size:10px}
+.sheet-sub .sub-sig .sg{padding-top:34px}
+.sheet-sub .sub-sig .ln{border-top:1.2px solid #0d1b36;padding-top:5px;line-height:1.45}
+.sheet-sub .sub-sig .ln b{color:#0d1b36;font-size:10.5px}
+.sheet-sub .sub-leg{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;font-size:8.5px;color:#4a5e75;background:#f3f6fb;border:1px solid #dce5f0;border-radius:7px;padding:5px 9px}
+.sheet-sub .sub-leg b{color:#0d1b36}
+.sheet-sub .ft{position:absolute;left:12mm;right:12mm;bottom:6mm;border-top:1px solid #d5dfea;padding-top:4px;font-size:8.5px;color:#6c7f94;display:flex;justify-content:space-between}
+.sheet-sub .ed-wrap{position:relative;padding-right:26px}
+.sheet-sub .ed-btn{position:absolute;top:-2px;right:-2px;padding:2px 6px;font-size:11px;line-height:1.2}
+.sheet-sub .ed-box textarea,.sheet-sub .ed-box input{width:100%;box-sizing:border-box;font:inherit;font-size:10.5px;line-height:1.45}
+.sheet-sub .ed-box [hidden]{display:none!important}
+.sheet-sub .ed-wrap [hidden]{display:none!important}
+.sub-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+@media print{
+  .sheet-sub{box-shadow:none;margin:0;page-break-after:always;break-after:page;height:297mm;min-height:0;overflow:hidden;box-sizing:border-box}
+  .sheet-sub .ed-btn,.sheet-sub .ed-box,.sheet-sub .ul-tools button,.sheet-sub .ul-editor,.sheet-sub .ul-actions{display:none!important}
+  .sheet-sub .ed-wrap{padding-right:0}
+}
+
+
+/* ---------- Pemilih Murid dari Data Lepas (Modal Cipta Kelas) ---------- */
+.ml-wrap{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:12px;background:rgba(255,255,255,.72)}
+.ml-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.ml-list{max-height:220px;overflow:auto;border:1px solid rgba(15,82,87,.14);border-radius:10px;background:#fff}
+.ml-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #eef2f5;cursor:pointer;font-size:13px;transition:background .12s}
+.ml-item:last-child{border-bottom:0}
+.ml-item:hover{background:#f4faf9}
+.ml-item.sel{background:#e7f5f3}
+.ml-item input[type="checkbox"]{width:16px;height:16px;accent-color:var(--brand);flex:none;cursor:pointer}
+.ml-item .ml-nm{flex:1;min-width:0}
+.ml-item .ml-nm b{display:block;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-item .ml-nm small{color:var(--muted);font-size:11.5px}
+.ml-item .ml-kls{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--gold-soft);color:#8a6312;white-space:nowrap}
+.ml-empty{padding:14px;text-align:center;color:var(--ink-2);font-size:13px;line-height:1.5;background:var(--gold-soft);border-radius:10px}
 
 #printArea{display:none}
 @media print{
@@ -623,7 +704,7 @@ addEventListener('resize', () => Boot.resize());
 Boot.show();
 
 /* ====================== STATE ====================== */
-const S = { data:null, view:'dash', emel:localStorage.getItem('pbd_emel')||'', token:localStorage.getItem('pbd_token')||'', kelas:localStorage.getItem('pbd_kelas')||'', sekolah:localStorage.getItem('pbd_sekolah')||'', peringkat:localStorage.getItem('pbd_peringkat')||'', mpSel:null, stuSel:null, charts:[] };
+const S = { data:null, view:'dash', emel:localStorage.getItem('pbd_emel')||'', token:localStorage.getItem('pbd_token')||'', kelas:localStorage.getItem('pbd_kelas')||'', sekolah:localStorage.getItem('pbd_sekolah')||'', peringkat:localStorage.getItem('pbd_peringkat')||'', mpSel:null, stuSel:null, subSel:'ALL', subEdit:{}, charts:[] };
 try{ sessionStorage.removeItem('pbd_pw'); localStorage.removeItem('pbd_cache'); }catch(e){} // bersihkan data versi lama
 const NAV = [
   ['dash','◎','Papan Pemuka'],['akaun','🛡','Akaun Pengguna'],['kelas','🗓','Kelas & Tahun'],['murid','👥','Senarai Murid'],['markah','✎','Rekod Prestasi'],
@@ -1061,20 +1142,82 @@ V.kelas = () => {
   `<div class="hint">💡 Awal tahun baharu: tekan <b>Tambah Kelas Baharu</b>, isi sesi baharu (contoh ${new Date().getFullYear()+1}) dan pilih <b>Salin murid dari</b> kelas tahun lepas — senarai murid dibawa, rekod TP bermula kosong. Rekod tahun lepas tidak terusik.</div>`;
 };
 function newKelas(){
-  const k=S.data.kelasAktif||{}; const ks=kelasList();
+  const k=S.data.kelasAktif||{};
+  S._mlData=[]; S._mlSel=new Set(); S._mlFilter='ALL'; S._mlQuery='';
   openModal(`<h2 style="margin-top:0">Tambah Kelas Baharu</h2><p class="lock">Ruang data baharu untuk murid & rekod prestasi kelas ini akan disediakan secara automatik.</p>
   <div class="grid g2"><div><label class="l">Sesi (tahun kalendar)</label><input class="f" id="kSESI" value="${esc(k.SESI||new Date().getFullYear())}"></div>
   <div><label class="l">${isMenengah()?'Tingkatan / Aliran':'Tahun (darjah)'}</label><select class="f" id="kTAHUN" onchange="$('#kTAHAP').value=tahapDariTahun(this.value)">${isMenengah()?['Kefungsian Rendah','Tingkatan 1','Tingkatan 2','Tingkatan 3','Tingkatan 4','Tingkatan 5',''].map(o=>`<option value="${o}">${o||'— tiada —'}</option>`).join(''):['1','2','3','4','5','6',''].map(o=>`<option value="${o}">${o?'Tahun '+o:'— tiada —'}</option>`).join('')}</select></div></div>
   <label class="l">Tahap / Skala (menentukan mata pelajaran & pentaksiran kelas ini)</label><select class="f" id="kTAHAP">${isMenengah()?'<option value="KR">Kefungsian Rendah (Skala TP 1–3)</option><option value="T1">Tingkatan 1 (TP 1–6)</option><option value="T2">Tingkatan 2 (TP 1–6)</option><option value="T3">Tingkatan 3 (TP 1–6)</option><option value="T4">Tingkatan 4 (TP 1–6)</option><option value="T5">Tingkatan 5 (TP 1–6)</option>':'<option value="1">Tahap 1 (Tahun 1–3)</option><option value="2">Tahap 2 (Tahun 4–6)</option>'}</select>
   <label class="l">Nama kelas</label><input class="f" id="kNAMA_KELAS" placeholder="cth: AL BIRUNI">
   <label class="l">Nama guru kelas</label><input class="f" id="kNAMA_GURU_KELAS">
-  <label class="l">Salin senarai murid dari (pilihan)</label><select class="f" id="kSALIN_DARI"><option value="">— Tidak, mula kosong —</option>${ks.map(x=>`<option value="${esc(x.ID_KELAS)}">${esc(x.SESI)} • ${esc(kelasLabel(x))}</option>`).join('')}</select>
+  <label class="l">Pilih murid dari data lepas (pilihan)</label>
+  <div class="ml-wrap" id="mlBox"><div class="lock" style="padding:10px;text-align:center">⏳ Menyemak senarai murid daripada sesi / kelas terdahulu…</div></div>
   <div class="row" style="margin-top:16px"><span class="sp"></span><button class="btn" onclick="closeModal()">Batal</button><button class="btn pri" onclick="saveKelas(this)">Cipta Kelas</button></div>`);
+  loadMuridLepasModal();
+}
+async function loadMuridLepasModal(){
+  const box=$('#mlBox'); if(!box) return;
+  try{
+    const j=await post({action:'getMuridLepas',emel:S.emel,token:S.token,sekolah:S.sekolah,peringkat:S.peringkat});
+    if(!$('#mlBox')) return; // modal sudah ditutup
+    if(!j.ok) throw new Error(j.error||'Gagal memuatkan data lepas');
+    const list=Array.isArray(j.murid)?j.murid:[];
+    const kls=Array.isArray(j.kelas)?j.kelas:[];
+    S._mlData=list; S._mlKelas=kls; S._mlSel=new Set(); S._mlFilter='ALL'; S._mlQuery='';
+    if(!list.length){
+      box.innerHTML=`<div class="ml-empty">ℹ <b>Tiada data murid daripada sesi / kelas terdahulu.</b><br>Anda boleh cipta kelas ini dahulu dan masukkan nama murid secara manual di menu <b>Senarai Murid</b> nanti.</div>`;
+      return;
+    }
+    box.innerHTML=`<div class="ml-bar">
+      <select class="f" style="flex:1;min-width:170px;padding:7px 10px;font-size:13px" id="mlFilter" onchange="S._mlFilter=this.value;renderMuridLepasList()">
+        <option value="ALL">Semua kelas lepas (${list.length} murid)</option>
+        ${kls.map(x=>`<option value="${esc(x.ID_KELAS)}">${esc(x.LABEL)} (${x.BIL})</option>`).join('')}
+      </select>
+      <input class="f" style="flex:1;min-width:160px;padding:7px 10px;font-size:13px" placeholder="🔎 Cari nama / No. KP…" oninput="S._mlQuery=this.value.trim().toLowerCase();renderMuridLepasList()">
+    </div>
+    <div class="ml-bar" style="margin-bottom:6px">
+      <button type="button" class="btn sm" onclick="mlPickVisible(true)">✓ Pilih semua paparan</button>
+      <button type="button" class="btn sm" onclick="mlPickVisible(false)">✕ Kosongkan pilihan</button>
+      <span class="sp"></span>
+      <span class="chip" id="mlCount">0 murid dipilih</span>
+    </div>
+    <div class="ml-list" id="mlList"></div>
+    <div class="lock" style="font-size:11.5px;margin-top:6px">💡 Rekod TP tidak disalin — hanya maklumat asas murid dibawa ke kelas baharu. Jika murid tiada dalam senarai, anda boleh tambah secara manual dalam <b>Senarai Murid</b> selepas kelas dicipta.</div>`;
+    renderMuridLepasList();
+  }catch(e){
+    if($('#mlBox')) $('#mlBox').innerHTML=`<div class="ml-empty">⚠ Tidak dapat menyemak data murid lepas (${esc(e.message)}).<br>Jika Apps Script belum dikemas kini, anda masih boleh cipta kelas kosong dahulu dan isi murid di menu <b>Senarai Murid</b>.</div>`;
+  }
+}
+function mlFilteredIdx(){
+  return (S._mlData||[]).map((m,i)=>({m,i})).filter(({m})=>{
+    if(S._mlFilter && S._mlFilter!=='ALL' && m.ID_KELAS_ASAL!==S._mlFilter) return false;
+    if(S._mlQuery && !(m.NAMA_MURID+' '+(m.NO_MYKID||'')+' '+(m.KELAS_ASAL||'')).toLowerCase().includes(S._mlQuery)) return false;
+    return true;
+  });
+}
+function renderMuridLepasList(){
+  const el=$('#mlList'), cnt=$('#mlCount'); if(!el) return;
+  const rows=mlFilteredIdx();
+  if(cnt) cnt.textContent=`${S._mlSel.size} murid dipilih`;
+  if(!rows.length){ el.innerHTML=`<div class="lock" style="padding:14px;text-align:center">Tiada murid sepadan dengan carian.</div>`; return; }
+  el.innerHTML=rows.map(({m,i})=>{
+    const on=S._mlSel.has(i);
+    return `<label class="ml-item ${on?'sel':''}"><input type="checkbox" ${on?'checked':''} onchange="mlToggle(${i},this.checked)"><div class="ml-nm"><b>${esc(m.NAMA_MURID)}</b><small>${esc(m.NO_MYKID||'Tiada No. KP')} • ${esc(m.JANTINA||'—')}</small></div><span class="ml-kls">${esc(m.KELAS_ASAL)}</span></label>`;
+  }).join('');
+}
+function mlToggle(idx, on){ if(on) S._mlSel.add(idx); else S._mlSel.delete(idx); renderMuridLepasList(); }
+function mlPickVisible(on){
+  if(on) mlFilteredIdx().forEach(({i})=>S._mlSel.add(i));
+  else S._mlSel.clear();
+  renderMuridLepasList();
 }
 function saveKelas(btn){
-  const d={}; ['SESI','TAHUN','TAHAP','NAMA_KELAS','NAMA_GURU_KELAS','SALIN_DARI'].forEach(x=>d[x]=$('#k'+x).value.trim());
+  const d={}; ['SESI','TAHUN','TAHAP','NAMA_KELAS','NAMA_GURU_KELAS'].forEach(x=>d[x]=$('#k'+x).value.trim());
   if(!d.SESI||!d.NAMA_KELAS) return toast('Sesi dan nama kelas wajib diisi',true);
-  run(btn, async()=>{ await api('createKelas',{data:d}); S.stuSel=null; S.mpSel=null; closeModal(); }, 'Kelas baharu dicipta & dibuka ✓');
+  const dipilih=[...(S._mlSel||[])].sort((a,b)=>a-b).map(i=>S._mlData[i]).filter(Boolean);
+  if(dipilih.length) d.MURID_PILIHAN=dipilih;
+  const msg=dipilih.length ? `Kelas baharu dicipta dengan ${dipilih.length} murid ✓` : 'Kelas baharu dicipta (kosong) — sila tambah murid di Senarai Murid ✓';
+  run(btn, async()=>{ await api('createKelas',{data:d}); S.stuSel=null; S.mpSel=null; closeModal(); }, msg);
 }
 function editKelas(id){
   const k=kelasList().find(x=>x.ID_KELAS===id); if(!k) return;
@@ -1398,6 +1541,141 @@ function reportHTMLSM(s, editable=false){
    </div><div class="ft"><span>Dijana oleh e-PBD PPKI (KSSMPK Menengah)</span><span>Dokumen sulit untuk ibu bapa / penjaga</span></div>
   </div>`;
 }
+/* ---------- Pelaporan Penuh Setiap Subjek (Sekolah Menengah KSSMPK Sahaja) ---------- */
+const TP_LABEL_6 = ['','Sangat Terhad','Terhad','Memuaskan','Baik','Sangat Baik','Cemerlang'];
+const TP_LABEL_3 = ['','Bimbingan Penuh','Bimbingan','Mengaplikasi'];
+function subEditKey(stuId, kodMp, field){ return [stuId, kodMp, field].join('|'); }
+function getSubEdit(stuId, kodMp, field, fallback){
+  const k=subEditKey(stuId, kodMp, field);
+  return (S.subEdit && Object.prototype.hasOwnProperty.call(S.subEdit, k)) ? S.subEdit[k] : fallback;
+}
+function kemahiranTafsiran(mp, compName, idx, tpVal, maxT){
+  const list=(S.data&&S.data.kemahiran||[]).filter(k=>String(k.KOD_MP||'').trim().toUpperCase()===String(mp.KOD_MP||'').trim().toUpperCase());
+  const norm=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
+  const target=norm(compName);
+  let found=list.find(k=>norm(k.KEMAHIRAN)===target);
+  if(!found && target) found=list.find(k=>{const nk=norm(k.KEMAHIRAN); return nk && (nk.includes(target)||target.includes(nk));});
+  if(!found) found=list.find(k=>Number(k.BIL)===idx+1) || list[idx];
+  const txt=found ? String(found['TP'+tpVal]||'').trim() : '';
+  if(txt) return txt;
+  if(maxT===3){
+    return ['','Memberi respons asas dalam kemahiran '+compName+' dengan bimbingan penuh guru.','Menguasai langkah asas dalam kemahiran '+compName+' dengan bimbingan guru.','Mengaplikasikan kemahiran '+compName+' secara konsisten dengan bimbingan minimum.'][tpVal]||'';
+  }
+  return ['','Mempamerkan pengetahuan sangat terhad bagi '+compName+' dan memerlukan bimbingan penuh.','Mempamerkan kefahaman terhad bagi '+compName+' dengan bimbingan guru.','Mengaplikasikan kemahiran asas bagi '+compName+' pada tahap memuaskan.','Menguasai kemahiran '+compName+' dengan baik secara berdikari.','Mengaplikasikan kemahiran '+compName+' dengan sangat baik, sistematik dan konsisten.','Menguasai kemahiran '+compName+' secara cemerlang dan boleh membimbing rakan.'][tpVal]||'';
+}
+function reportSubjekSM(s, mp, rec, editable=false){
+  const t=T(), M=Number(mp.SKALA_TP)||maxTP();
+  const tpAll=tpNum(rec&&rec.TP_KESELURUHAN);
+  const tpCol=n=>M===3?['','#d9534f','#e8c13a','#147a72'][n]||'#64748b':['','#d9534f','#ee8a3c','#e8c13a','#8cc152','#3aa57a','#147a72'][n]||'#64748b';
+  const tpLbl=n=>M===3?(TP_LABEL_3[n]||'—'):(TP_LABEL_6[n]||'—');
+  const ini=String(t.NAMA_SEKOLAH||'SMK').split(/\s+/).map(w=>w[0]).join('').slice(0,3);
+  const cs=comps(mp);
+  const tfObj=tafsiranFor(mp.KOD_MP);
+  const defStmt=(tpAll&&tfObj&&tfObj['TP'+tpAll]) ? String(tfObj['TP'+tpAll]).trim() : tpLbl(tpAll);
+  const stmt=getSubEdit(s.ID_MURID, mp.KOD_MP, 'stmt', defStmt);
+  const guruMp=getSubEdit(s.ID_MURID, mp.KOD_MP, 'guru', String(mp.NAMA_GURU_MP||t.NAMA_GURU_KELAS||'—'));
+  const tarikhTxt=getSubEdit(s.ID_MURID, mp.KOD_MP, 'tarikh', fmtDate(t.TARIKH_PELAPORAN)||('Sesi '+(t.SESI||'')));
+  const ulasanMp=getSubEdit(s.ID_MURID, mp.KOD_MP, 'ulasan', String((rec&&rec.ULASAN_GURU_MP)||'').trim());
+  const skillRows=cs.map((c,j)=>{
+    const v=tpNum(rec&&rec['K'+(j+1)]);
+    const defTaf=v ? kemahiranTafsiran(mp, c, j, v, M) : 'Belum ditaksir.';
+    const taf=getSubEdit(s.ID_MURID, mp.KOD_MP, 'k'+(j+1), defTaf);
+    return {idx:j+1, name:c, tp:v, taf};
+  }).filter(x=>x.tp>0 || cs.length<=12);
+  const assessed=skillRows.filter(x=>x.tp>0);
+  const avgK=assessed.length ? (assessed.reduce((a,b)=>a+b.tp,0)/assessed.length).toFixed(1) : '–';
+  const edField=(field, val, labelTxt, isArea=true, isSaveSheet=false)=>{
+    if(!editable||!isAdmin()) return esc(val).replace(/\n/g,'<br>');
+    const k=subEditKey(s.ID_MURID, mp.KOD_MP, field);
+    return `<div class="ed-wrap" data-ek="${esc(k)}" data-stu="${esc(s.ID_MURID)}" data-kod="${esc(mp.KOD_MP)}" data-field="${esc(field)}"><div class="ed-val">${esc(val||'—').replace(/\n/g,'<br>')}</div><button type="button" class="btn sm ed-btn" title="Edit ${esc(labelTxt)}" onclick="openSubEd(this)">✎</button><div class="ed-box" hidden>${isArea?`<textarea class="f" rows="3">${esc(val)}</textarea>`:`<input class="f" value="${esc(val)}">`}<div class="ul-actions"><button type="button" class="btn sm pri" onclick="applySubEd(this,${isSaveSheet?'true':'false'})">${isSaveSheet?'💾 Simpan ke Sheet':'✓ Guna untuk PDF'}</button><button type="button" class="btn sm" onclick="cancelSubEd(this)">Batal</button></div><div class="py-status" role="status" aria-live="polite"></div></div></div>`;
+  };
+  return `<div class="sheet sheet-sub"><div class="sheet-in">
+   <div class="sub-kpm">
+    ${t.LOGO_URL?`<img src="${esc(t.LOGO_URL)}">`:`<div class="sub-lg">${esc(ini)}</div>`}
+    <div class="sub-sch"><div class="sub-min">KEMENTERIAN PENDIDIKAN MALAYSIA</div><b>${esc(t.NAMA_SEKOLAH)}</b><span>${esc(t.ALAMAT_SEKOLAH)} ${esc(t.ALAMAT_SEKOLAH_2||'')}</span></div>
+    <div class="sub-tag"><i>PELAPORAN SUBJEK • KSSMPK</i><br>${esc(tahapLabel(tahapAktif()))}<br>${t.SESI?'Sesi '+esc(t.SESI):''}</div>
+   </div>
+   <div class="sub-hero">
+    <div>
+     <div class="sub-eyebrow">${esc(t.PELAPORAN||'PENTAKSIRAN AKHIR TAHUN')} • REKOD PRESTASI INDIVIDU</div>
+     <h2>${esc(mp.NAMA_MATA_PELAJARAN)}</h2>
+     <div class="sub-stmt"><b>Pernyataan Tahap Penguasaan Keseluruhan</b>${edField('stmt', stmt, 'Pernyataan Keseluruhan', true, false)}</div>
+    </div>
+    <div class="sub-tpcard">
+     <div class="sub-ring" style="background:${tpCol(tpAll)}"><small>TAHAP</small><b>${tpAll||'–'}</b></div>
+     <div class="sub-lbl">${esc(tpLbl(tpAll))}</div>
+     <div class="sub-scale">Skala TP 1 – ${M}</div>
+    </div>
+   </div>
+   <div class="sub-info">
+    <div class="si"><b>Nama Murid</b><span>${esc(s.NAMA_MURID)}</span></div>
+    <div class="si"><b>No. Kad Pengenalan / MyKid</b><span>${esc(s.NO_MYKID||'—')}</span></div>
+    <div class="si"><b>Jantina</b><span>${esc(s.JANTINA||'—')}</span></div>
+    <div class="si"><b>Kelas / Aliran</b><span>${esc(t.KELAS)} (${esc(tahapLabel(tahapAktif()))})</span></div>
+    <div class="si"><b>Guru Mata Pelajaran</b><span>${edField('guru', guruMp, 'Nama Guru MP', false, false)}</span></div>
+    <div class="si"><b>Tarikh Pelaporan</b><span>${edField('tarikh', tarikhTxt, 'Tarikh Pelaporan', false, false)}</span></div>
+   </div>
+   <div class="sub-sec-hd"><b>// PECAHAN PENGUASAAN MENGIKUT KEMAHIRAN</b><span>${assessed.length}/${skillRows.length} kemahiran ditaksir • Purata kemahiran: ${avgK}/${M}</span></div>
+   <table class="sub-tbl"><thead><tr><th style="width:28px;text-align:center">#</th><th>Kemahiran / Topik</th><th style="text-align:center">Tahap Penguasaan</th><th>Tafsiran Standard Prestasi</th></tr></thead><tbody>
+   ${skillRows.length?skillRows.map(x=>{const col=tpCol(x.tp); const pct=x.tp?Math.round(x.tp/M*100):0; return `<tr>
+    <td class="sub-num">${x.idx}</td>
+    <td class="sub-kname">${esc(x.name)}</td>
+    <td class="sub-ktp">${x.tp?`<span class="sub-pill" style="background:${col}">TP ${x.tp}</span><div class="sub-mbar"><i style="width:${pct}%;background:${col}"></i></div>`:'<span style="color:#94a3b8">–</span>'}</td>
+    <td>${edField('k'+x.idx, x.taf, 'Tafsiran '+x.name, true, false)}</td>
+   </tr>`;}).join(''):`<tr><td colspan="4" style="text-align:center;padding:16px;color:#64748b">Tiada pecahan kemahiran ditetapkan bagi mata pelajaran ini.</td></tr>`}
+   </tbody></table>
+   <div class="sub-ul"><b>Ulasan Guru Mata Pelajaran</b>${edField('ulasan', ulasanMp || 'Tingkatkan usaha dan teruskan latihan secara konsisten.', 'Ulasan Guru Mata Pelajaran', true, true)}</div>
+   <div class="sub-sig">
+    <div class="sg"><div class="ln"><b>${esc(guruMp)}</b><br>GURU MATA PELAJARAN<br>${esc(t.NAMA_SEKOLAH)}</div></div>
+    <div class="sg"><div class="ln"><b>${esc(t.NAMA_GURU_BESAR||'—')}</b><br>${esc(t.JAWATAN_PENTADBIR||'PENGETUA')}<br>${esc(t.NAMA_SEKOLAH)}</div></div>
+   </div>
+   <div class="sub-leg">${M===3?'<b>Skala Kefungsian Rendah (KSSMPK):</b> <span>TP1: Bimbingan Penuh</span> • <span>TP2: Bimbingan</span> • <span>TP3: Mengaplikasi Konsisten</span>'
+     :'<b>Skala Tahap Penguasaan (KSSMPK):</b> <span>TP1: Sangat Terhad</span> • <span>TP2: Terhad</span> • <span>TP3: Memuaskan</span> • <span>TP4: Baik</span> • <span>TP5: Sangat Baik</span> • <span>TP6: Cemerlang</span>'}</div>
+   </div><div class="ft"><span>Dijana oleh e-PBD PPKI • Pelaporan Subjek ${esc(mp.KOD_MP)}</span><span>Dokumen rasmi pelaporan murid • ${esc(t.KOD_SEKOLAH||'')}</span></div>
+  </div>`;
+}
+function openSubEd(btn){
+  if(!isAdmin()) return askLogin();
+  const w=btn.closest('.ed-wrap');
+  w.querySelector('.ed-val').hidden=true; btn.hidden=true; w.querySelector('.ed-box').hidden=false;
+  const inp=w.querySelector('textarea,input'); if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+}
+function cancelSubEd(btn){
+  const w=btn.closest('.ed-wrap');
+  w.querySelector('.ed-box').hidden=true; w.querySelector('.ed-val').hidden=false; w.querySelector('.ed-btn').hidden=false;
+  const st=w.querySelector('.py-status'); if(st) st.textContent='';
+}
+async function applySubEd(btn, saveToSheet){
+  const w=btn.closest('.ed-wrap'), key=w.dataset.ek, stuId=w.dataset.stu, kod=w.dataset.kod, field=w.dataset.field;
+  const inp=w.querySelector('textarea,input'), val=inp.value.trim(), status=w.querySelector('.py-status');
+  S.subEdit = S.subEdit || {};
+  S.subEdit[key] = val;
+  if(saveToSheet && field==='ulasan'){
+    const rec=mk(stuId, kod);
+    if(rec){
+      const old=btn.innerHTML; btn.disabled=true; btn.innerHTML='⏳ Menyimpan…';
+      if(status) status.textContent='Sedang menyimpan ulasan ke Google Sheet…';
+      try{
+        const row=Object.assign({},rec); delete row._row; row.ID_MURID=stuId; row.ULASAN_GURU_MP=val;
+        await api('saveMarkah',{kod,rows:[row]});
+        toast('Ulasan guru mata pelajaran disimpan ke Google Sheet ✓');
+      }catch(e){
+        btn.disabled=false; btn.innerHTML=old;
+        if(status) status.textContent='Ralat simpanan: '+e.message;
+        return toast(e.message,true);
+      }
+    }
+  } else {
+    toast('Teks dikemas kini untuk pratonton & cetakan PDF ✓');
+  }
+  render();
+}
+function reportAllSubjekSM(s, editable=false, onlyKod='ALL'){
+  const rows=reportRows(s).filter(x=>onlyKod==='ALL' || x.mp.KOD_MP===onlyKod);
+  if(!rows.length) return '<div class="card empty">Tiada mata pelajaran ber-TP bagi murid ini.</div>';
+  return rows.map(({mp,rec})=>reportSubjekSM(s, mp, rec, editable)).join('');
+}
+
 function reportHTML(s, editable=false){
   if(isMenengah()) return reportHTMLSM(s, editable);
   const t=T(); const rows=reportRows(s);
@@ -1438,20 +1716,37 @@ function fitSheets(root){
     if(h>SHEET_MAX_PX) el.style.zoom=String(Math.max(0.55, Math.floor(SHEET_MAX_PX/h*1000)/1000));
   });
 }
-const lapInc = () => S.lapInc || (S.lapInc = {prof:true, cert:true});
+const lapInc = () => S.lapInc || (S.lapInc = {subjek:true, prof:true, cert:true});
 V.laporan = () => {
   const st=students(); if(!S.stuSel||!st.find(s=>s.ID_MURID===S.stuSel)) S.stuSel=(st[0]||{}).ID_MURID; const s=st.find(x=>x.ID_MURID===S.stuSel);
-  const pg=['report','prof','cert'].includes(S.lapPage)?S.lapPage:'report'; const inc=lapInc();
+  const sm=isMenengah();
+  const stuRows=s?reportRows(s):[];
+  const validPages=sm?['report','subjek','prof','cert']:['report','prof','cert'];
+  const pg=validPages.includes(S.lapPage)?S.lapPage:'report'; const inc=lapInc();
+  if(sm && S.subSel!=='ALL' && !stuRows.some(r=>r.mp.KOD_MP===S.subSel)) S.subSel='ALL';
   const tab=(k,l)=>`<button class="btn sm ${pg===k?'pri':''}" onclick="S.lapPage='${k}';render()">${l}</button>`;
   const chk=(k,l)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" ${inc[k]?'checked':''} onchange="lapInc().${k}=this.checked"> ${l}</label>`;
-  $('#view').innerHTML = head('Laporan Murid','Setiap murid mempunyai Laporan PBD, Profil Prestasi (Spider Chart) dan Sijil PBD — dicetak bersama dalam satu PDF. Mata pelajaran tanpa TP disembunyikan.',
-   `<button class="btn" onclick="printDocs('pakej',[S.stuSel])">🖨 Cetak murid ini</button><button class="btn pri" onclick="printDocs('pakej',students().map(s=>s.ID_MURID))">🖨 Cetak SEMUA (${st.length})</button>${chk('prof','+ Spider Chart')}${chk('cert','+ Sijil')}`)+
-  `<div class="card" style="margin-bottom:16px"><div class="row"><button class="btn sm" onclick="stepStu(-1)">◀</button><select class="f" style="flex:1" onchange="S.stuSel=this.value;render()">
+  const subBar=(sm && pg==='subjek' && s)?`<div class="sub-toolbar">
+    <span class="lock" style="font-weight:700">Subjek diambil (${stuRows.length}):</span>
+    <button class="btn sm ${S.subSel==='ALL'?'gold':''}" onclick="S.subSel='ALL';render()">Semua Subjek (${stuRows.length})</button>
+    ${stuRows.map(({mp})=>`<button class="btn sm ${S.subSel===mp.KOD_MP?'gold':''}" onclick="S.subSel='${esc(mp.KOD_MP)}';render()">${esc(mp.KOD_MP)}</button>`).join('')}
+    <span class="sp"></span>
+    <button class="btn sm pri" onclick="printDocs('subjek',[S.stuSel],S.subSel)">🖨 ${S.subSel==='ALL'?'Cetak Semua Subjek Murid Ini':'Cetak Subjek '+esc(S.subSel)+' Sahaja'}</button>
+   </div>`:'';
+  const hintTxt = pg==='subjek'
+    ? 'Tekan ✎ pada mana-mana Pernyataan Keseluruhan, Tafsiran Kemahiran, Nama Guru, Tarikh atau Ulasan Guru MP untuk edit terus sebelum cetak / simpan PDF.'
+    : pg==='report'
+      ? 'Tekan ✎ pada Penyataan atau Ulasan Guru Kelas untuk edit sebelum cetak / simpan PDF.'
+      : 'Pengiktirafan sijil: purata TP ≥5 Cemerlang • ≥4 Kepujian • ≥3 Baik • lain-lain Penghargaan.';
+  $('#view').innerHTML = head('Laporan Murid', sm ? 'Sekolah Menengah (KSSMPK): setiap murid dijana Laporan Keseluruhan, Pelaporan Penuh Setiap Subjek yang diambil, Spider Chart dan Sijil PBD.' : 'Setiap murid mempunyai Laporan PBD, Profil Prestasi (Spider Chart) dan Sijil PBD — dicetak bersama dalam satu PDF. Mata pelajaran tanpa TP disembunyikan.',
+   `<button class="btn" onclick="printDocs('pakej',[S.stuSel])">🖨 Cetak murid ini</button><button class="btn pri" onclick="printDocs('pakej',students().map(s=>s.ID_MURID))">🖨 Cetak SEMUA (${st.length})</button>${sm?chk('subjek','+ Pelaporan Subjek'):''}${chk('prof','+ Spider Chart')}${chk('cert','+ Sijil')}`)+
+  `<div class="card" style="margin-bottom:16px"><div class="row"><button class="btn sm" onclick="stepStu(-1)">◀</button><select class="f" style="flex:1" onchange="S.stuSel=this.value;S.subSel='ALL';render()">
    ${st.map((x,i)=>`<option value="${x.ID_MURID}" ${x.ID_MURID===S.stuSel?'selected':''}>${i+1}. ${esc(x.NAMA_MURID)}</option>`).join('')}</select><button class="btn sm" onclick="stepStu(1)">▶</button></div>
-   <div class="row" style="margin-top:10px">${tab('report','📄 Laporan PBD')}${tab('prof','🕸 Spider Chart')}${tab('cert','🏅 Sijil PBD')}</div>
-   <p class="lock" style="margin:10px 0 0">${pg==='report'?'Tekan ✎ pada Penyataan atau Ulasan Guru Kelas untuk edit sebelum cetak / simpan PDF.':'Pengiktirafan sijil: purata TP ≥5 Cemerlang • ≥4 Kepujian • ≥3 Baik • lain-lain Penghargaan.'}</p></div>
-  <div style="overflow:auto"><div class="preview-scale"${pg==='report'?'':' style="transform-origin:top left"'}>${s?(pg==='prof'?profileHTML(s):pg==='cert'?certHTML(s):reportHTML(s,true)):'<div class="card empty">Tiada murid</div>'}</div></div>`;
-  if(pg==='report') fitSheets($('#view'));
+   <div class="row" style="margin-top:10px">${tab('report',sm?'📄 Laporan Keseluruhan':'📄 Laporan PBD')}${sm?tab('subjek','📚 Pelaporan Setiap Subjek ('+stuRows.length+')'):''}${tab('prof','🕸 Spider Chart')}${tab('cert','🏅 Sijil PBD')}</div>
+   ${subBar}
+   <p class="lock" style="margin:10px 0 0">${hintTxt}</p></div>
+  <div style="overflow:auto"><div class="preview-scale"${(pg==='report'||pg==='subjek')?'':' style="transform-origin:top left"'}>${s?(pg==='subjek'?reportAllSubjekSM(s,true,S.subSel):pg==='prof'?profileHTML(s):pg==='cert'?certHTML(s):reportHTML(s,true)):'<div class="card empty">Tiada murid</div>'}</div></div>`;
+  if(pg==='report'||pg==='subjek') fitSheets($('#view'));
 };
 function editReportUlasan(){
   const editor=$('#reportUlEditor'); if(!editor||!isAdmin()) return;
@@ -1654,21 +1949,28 @@ function pdfKelasLabel(){
   const kUp=k.toUpperCase(), thUp=th.toUpperCase();
   return (kUp.startsWith(thUp) || kUp.startsWith('TAHUN '+thUp)) ? k : ('Tahun '+th+' '+k).trim();
 }
-function pdfDocTitle(list, kind){
+function pdfDocTitle(list, kind, onlyKod){
   const t=T(), kls=pdfKelasLabel(), sesi=String(t.SESI||'').trim();
-  const jenis = kind==='cert' ? 'Sijil PBD' : 'Pelaporan PBD';
+  let jenis = kind==='cert' ? 'Sijil PBD' : 'Pelaporan PBD';
+  if(kind==='subjek'){
+    const mpObj = (onlyKod && onlyKod!=='ALL') ? subjects(true).find(m=>m.KOD_MP===onlyKod) : null;
+    jenis = mpObj ? ('Pelaporan ' + mpObj.NAMA_MATA_PELAJARAN) : 'Pelaporan Semua Subjek';
+  }
   if(list.length===1){
     const nama=String(list[0].NAMA_MURID||'Murid').trim();
     return cleanPdfName(`${nama} - ${kls} - ${jenis}${sesi?' '+sesi:''}`);
   }
   return cleanPdfName(`${jenis} Semua Murid (${list.length}) - ${kls}${sesi?' '+sesi:''}`);
 }
-function printDocs(kind, ids){
+function printDocs(kind, ids, onlyKod='ALL'){
   const list=ids.map(id=>students().find(s=>s.ID_MURID===id)).filter(Boolean);
   if(!list.length) return toast('Tiada murid untuk dicetak.',true);
-  const inc=lapInc();
-  $('#printArea').innerHTML = list.map(s=>kind==='pakej'?reportHTML(s)+(inc.prof?profileHTML(s):'')+(inc.cert?certHTML(s):'')
-    :kind==='cert'?certHTML(s)+(S.withProf!==false?profileHTML(s):''):reportHTML(s)).join('');
+  const inc=lapInc(), sm=isMenengah();
+  $('#printArea').innerHTML = list.map(s=>kind==='subjek'
+    ? reportAllSubjekSM(s, false, onlyKod)
+    : kind==='pakej'
+      ? reportHTML(s)+(sm&&inc.subjek?reportAllSubjekSM(s,false,'ALL'):'')+(inc.prof?profileHTML(s):'')+(inc.cert?certHTML(s):'')
+      : kind==='cert'?certHTML(s)+(S.withProf!==false?profileHTML(s):''):reportHTML(s)).join('');
   const pa=$('#printArea'); pa.style.cssText='display:block;position:absolute;left:-10000px;top:0;visibility:hidden'; // ukur saiz sebenar dahulu
   fitSheets(pa); pa.style.cssText='';
   let ps=document.getElementById('pageStyle'); if(!ps){ps=document.createElement('style');ps.id='pageStyle';document.head.appendChild(ps);}
@@ -1677,7 +1979,7 @@ function printDocs(kind, ids){
     : kind==='cert' ? '@page{size:A4 landscape;margin:0}' : '@page{size:A4 portrait;margin:0}';
   // Tetapkan nama fail PDF automatik (Nama Murid - Kelas - Pelaporan PBD Sesi)
   window._origDocTitle = window._origDocTitle || document.title;
-  const pdfName = pdfDocTitle(list, kind);
+  const pdfName = pdfDocTitle(list, kind, onlyKod);
   document.title = pdfName;
   window.addEventListener('afterprint', ()=>{ setTimeout(()=>{ if(window._origDocTitle) document.title=window._origDocTitle; }, 1000); }, {once:true});
   toast(`Menyediakan PDF: ${pdfName}`);
